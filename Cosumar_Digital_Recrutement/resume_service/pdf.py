@@ -7,8 +7,9 @@ import json
 import re
 from datetime import datetime
 from googletrans import Translator
+from resume_service.models import Domaine, Poste, Candidature
 
-def extract_structured_data(text_lines, detected_language):
+def extract_structured_data(text_lines, detected_language, domaine, poste):
     full_text = " ".join(text_lines).lower()
     extracted_data = {
         "extraction_date": datetime.now().isoformat(),
@@ -46,61 +47,48 @@ def extract_structured_data(text_lines, detected_language):
         dates.extend(re.findall(pattern, full_text, re.IGNORECASE))
     if dates:
         extracted_data["structured_data"]["dates"] = dates
-    programming_languages = [
-        'Python', 'Java', 'JavaScript', 'HTML', 'CSS', 'SQL', 'PHP', 'C++', 'C#', 'Ruby', 'Go',
-        'Kotlin', 'Swift', 'TypeScript', 'C', 'XML', 'NoSQL', 'MongoDB', 'MySQL', 'PostgreSQL'
-    ]
-    frameworks = [
-        'React', 'Angular', 'Vue', 'Django', 'Flask', 'Spring', 'Spring Boot', 'Node.js', 'Node.js',
-        'Laravel', 'Symfony', 'CodeIgniter', 'Express', 'FastAPI', 'Tornado', 'Bottle',
-        'Bootstrap', 'Tailwind CSS', 'jQuery', 'Backbone.js', 'Ember.js', 'Svelte',
-        'Jakarta EE', 'J2EE', 'ASP.NET', '.NET', 'Blazor', 'Xamarin',
-        'TensorFlow', 'PyTorch', 'Keras', 'Scikit-learn', 'Pandas', 'NumPy', 'Matplotlib',
-        'Unity', 'Unreal Engine', 'Godot', 'Vaadin', 'Hibernate', 'JPA'
-    ]
-    technologies = [
-        'Docker', 'Kubernetes', 'Git', 'Jenkins', 'GitLab', 'GitHub', 'Bitbucket',
-        'AWS', 'Azure', 'Google Cloud Platform', 'Firebase', 'Heroku', 'Vercel', 'Netlify',
-        'Redis', 'Elasticsearch', 'Apache', 'Nginx', 'Tomcat', 'IIS',
-        'Cassandra', 'CassandraDB', 'Oracle', 'SQLite', 'MariaDB',
-        'Grafana', 'Prometheus', 'ELK Stack', 'Kibana', 'Logstash',
-        'Maven', 'Gradle', 'NPM', 'Yarn', 'Pip', 'Composer'
-    ]
-    concepts = [
-        'Machine Learning', 'Data Science', 'Artificial Intelligence', 'Deep Learning',
-        'Project Management', 'Agile', 'Scrum', 'Leadership', 'Communication',
-        'Bachelor', 'Master', 'PhD', 'Degree', 'University', 'College',
-        'Experience', 'Years', 'Manager', 'Developer', 'Engineer', 'Analyst',
-        'DevOps', 'Microservices', 'API', 'REST', 'GraphQL', 'MVC', 'MVVM'
-    ]
+
+    keywords = []
+    try:
+        domaine = Domaine.objects.filter(poste=Poste).first()
+        if domaine and domaine.keywords:
+            keywords = [kw.strip().lower() for kw in domaine.keywords.split(',')]
+    except Exception as e:
+        print(f"Error fetching keywords from Domaine: {e}")
+
+    poste_keywords = []
+
+    try:
+        poste = Poste.objects.filter(domaine=domaine).first()
+        if poste and poste.keywords:
+            poste_keywords = [kw.strip().lower() for kw in poste.keywords.split(',')]
+    except Exception as e:
+        print(f"Error fetching keywords from Poste: {e}")
+
+    if keywords and poste_keywords:
+        
+        found_keywords = []
+        ratio = 0
+        for kw in keywords:
+            if kw in full_text:
+                found_keywords.append(kw)
+                if kw in poste_keywords:
+                    ratio += 1
+        if found_keywords:
+            extracted_data["structured_data"] = found_keywords
+        
+        ratio = ratio / len(poste_keywords) if poste_keywords else 0
+        extracted_data["structured_data"]["keyword_match_ratio"] = ratio
+    langues = ["français", "anglais", "espagnol", "allemand", "italien", "portugais", "néerlandais", "russe", "chinois", "japonais", "coréen"]
     found_languages = []
-    for lang in programming_languages:
-        if lang.lower() in full_text:
-            found_languages.append(lang)
-    found_frameworks = []
-    for framework in frameworks:
-        if framework.lower() in full_text:
-            found_frameworks.append(framework)
-    found_technologies = []
-    for tech in technologies:
-        if tech.lower() in full_text:
-            found_technologies.append(tech)
-    found_concepts = []
-    for concept in concepts:
-        if concept.lower() in full_text:
-            found_concepts.append(concept)
+    for langue in langues:
+        if langue in full_text:
+            found_languages.append(langue)
     if found_languages:
-        extracted_data["structured_data"]["programming_languages"] = found_languages
-    if found_frameworks:
-        extracted_data["structured_data"]["frameworks"] = found_frameworks
-    if found_technologies:
-        extracted_data["structured_data"]["technologies"] = found_technologies
-    if found_concepts:
-        extracted_data["structured_data"]["concepts"] = found_concepts
-    address_pattern = r'\b\d+\s+[A-Za-z\s,.-]+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln)\b'
-    addresses = re.findall(address_pattern, full_text, re.IGNORECASE)
-    if addresses:
-        extracted_data["structured_data"]["addresses"] = addresses
+        extracted_data["structured_data"]["langues"] = found_languages
+    
+
+    
     return extracted_data
 
 all_extracted_data = []
