@@ -7,9 +7,10 @@ import json
 import re
 from datetime import datetime
 from googletrans import Translator
-from resume_service.models import Domaine, Poste, Candidature
+from resume_service.models import Domaine, Poste
+print("starting ocr process")
 
-def extract_structured_data(text_lines, detected_language, domaine, poste):
+def extract_structured_data(text_lines, detected_language, titre_poste):
     full_text = " ".join(text_lines).lower()
     extracted_data = {
         "extraction_date": datetime.now().isoformat(),
@@ -50,7 +51,9 @@ def extract_structured_data(text_lines, detected_language, domaine, poste):
 
     keywords = []
     try:
-        domaine = Domaine.objects.filter(poste=Poste).first()
+        poste = Poste.objects.filter(titre=titre_poste).first()
+        nom_domaine = poste.domaine.first() if poste else None
+        domaine = Domaine.objects.filter(nom=nom_domaine).first() if nom_domaine else None
         if domaine and domaine.keywords:
             keywords = [kw.strip().lower() for kw in domaine.keywords.split(',')]
     except Exception as e:
@@ -59,7 +62,6 @@ def extract_structured_data(text_lines, detected_language, domaine, poste):
     poste_keywords = []
 
     try:
-        poste = Poste.objects.filter(domaine=domaine).first()
         if poste and poste.keywords:
             poste_keywords = [kw.strip().lower() for kw in poste.keywords.split(',')]
     except Exception as e:

@@ -13,19 +13,21 @@ class Candidat(models.Model):
     
 class Domaine(models.Model):
     id = models.AutoField(primary_key=True)
-    nom = models.CharField(max_length=100)
+    nom = models.CharField(max_length=100, unique=True)
     keywords = models.JSONField(default=list)
+    date_creation = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.nom
 
 class Poste(models.Model):
-    titre = models.CharField(max_length=100)
+    id = models.AutoField(primary_key=True)
+    titre = models.CharField(max_length=100, unique=True)
     description = models.TextField()
     date_publication = models.DateTimeField(auto_now_add=True)
     date_expiration = models.DateTimeField(null=True, blank=True)
     statut = models.CharField(max_length=50, choices=[('ouvert', 'Ouvert'), ('ferme', 'Fermé')], default='ouvert')
-    domaine = models.ManyToManyField(Domaine, blank=True, related_name="job_posts")
+    domaine = models.OneToOneField(Domaine, blank=True, related_name="job_posts")
 
     keywords = models.JSONField(default=list, blank=True)
 
