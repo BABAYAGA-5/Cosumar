@@ -111,3 +111,62 @@ INSERT INTO resume_service_domaine (nom, keywords) VALUES
   "Google Analytics", "Google Ads", "Facebook Ads", "LinkedIn Ads", "Hotjar", "HubSpot", "Mailchimp",
   "Storytelling", "Copywriting", "Social media", "Community management", "Funnel", "Persona", "AB Testing"
 ]');
+
+-- Insert Full Stack Developer
+INSERT INTO resume_service_poste (titre, description, date_publication, date_expiration, statut, domaine_id, keywords)
+VALUES (
+    'Full Stack Developer',
+    'Develop end-to-end web applications using Django and React.',
+    NOW(),
+    '2025-09-15',
+    'ouvert',
+    1,
+    '["django", "react", "javascript", "postgresql"]'
+);
+
+-- Insert Data Analyst
+INSERT INTO resume_service_poste (titre, description, date_publication, date_expiration, statut, domaine_id, keywords)
+VALUES (
+    'Data Analyst',
+    'Analyze data trends and build dashboards in Power BI.',
+    NOW(),
+    '2025-08-30',
+    'ouvert',
+    2,
+    '["sql", "excel", "powerbi", "data visualization"]'
+);
+
+-- Insert DevOps Engineer
+INSERT INTO resume_service_poste (titre, description, date_publication, date_expiration, statut, domaine_id, keywords)
+VALUES (
+    'DevOps Engineer',
+    'Manage CI/CD pipelines and infrastructure using Docker and Kubernetes.',
+    NOW(),
+    '2025-10-01',
+    'ouvert',
+    3,
+    '["devops", "docker", "kubernetes", "aws"]'
+);
+-- Insert Data Scientist
+INSERT INTO resume_service_poste (titre, description, date_publication, date_expiration, statut, domaine_id, keywords)
+VALUES (
+    'Data Scientist',
+    'Use statistical models and machine learning algorithms to extract insights from data and support business decisions.',
+    NOW(),
+    '2025-09-30',
+    'ouvert',
+    4,  -- Replace with actual domaine_id for "Data Science"
+    '["machine learning", "python", "statistics", "data wrangling", "sql"]'
+);
+
+UPDATE resume_service_poste
+SET domaine_id = 1
+WHERE 1=1
+
+UPDATE resume_service_domaine
+SET keywords = keywords::jsonb || '["SQL"]'::jsonb
+WHERE id = 1;
+
+UPDATE resume_service_domaine
+SET keywords = keywords::jsonb - 'new_keyword'
+WHERE id = 1;

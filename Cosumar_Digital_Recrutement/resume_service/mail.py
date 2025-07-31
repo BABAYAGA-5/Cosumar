@@ -1,4 +1,3 @@
-# fetch_pdfs.py
 import os
 import sys
 import django
@@ -61,8 +60,8 @@ def check_emails():
                     # Check if candidate exists, if not create one
                     if msg.from_ not in candidats:
                         print(f"❌ Candidate '{msg.from_}' not found. Creating new candidate...")
-                        candidat = Candidat()
-                        candidat.email = msg.from_
+                        candidat = Candidat() 
+                        candidat.email = msg.headers.get('From')
                         candidat.nom = "Unknown"  # Will be updated later
                         candidat.prenom = "User"  # Will be updated later
                         candidat.save()

@@ -1,4 +1,8 @@
 from django.db import models
+from datetime import timedelta
+from datetime import datetime
+
+from numpy import extract
 
 class Candidat(models.Model):
     id = models.AutoField(primary_key=True)
@@ -25,9 +29,9 @@ class Poste(models.Model):
     titre = models.CharField(max_length=100, unique=True)
     description = models.TextField()
     date_publication = models.DateTimeField(auto_now_add=True)
-    date_expiration = models.DateTimeField(null=True, blank=True)
+    date_expiration = models.DateTimeField(null=True, blank=True, default=datetime.now() + timedelta(days=30))
     statut = models.CharField(max_length=50, choices=[('ouvert', 'Ouvert'), ('ferme', 'Fermé')], default='ouvert')
-    domaine = models.OneToOneField(Domaine, blank=True, related_name="job_posts")
+    domaine = models.ForeignKey(Domaine, on_delete=models.CASCADE, related_name='poste', null=True, blank=True)
 
     keywords = models.JSONField(default=list, blank=True)
 
@@ -45,6 +49,7 @@ class Candidature(models.Model):
         ('refuse', 'Refusé')
     ], default='en_attente')
     cv = models.BinaryField(blank=False, null=False)
+    extracted_data = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"Candidature de {self.candidat.prenom} {self.candidat.nom} pour le poste de {self.poste}"
