@@ -135,7 +135,7 @@ def extract_structured_data(pdf_id, text_lines, detected_language, titre_poste):
     if found_languages:
         extracted_data["structured_data"]["langues"] = found_languages
 
-    Candidature.objects.filter(id=pdf_id).update(extracted_data=json.dumps(extracted_data, ensure_ascii=False, indent=2))
+    Candidature.objects.filter(id=pdf_id).update(extracted_data=extracted_data)
 
     return extracted_data
 
@@ -213,10 +213,10 @@ def ocr_process(pdf_id):
     return all_extracted_data, detected_lang
 
 
-all_extracted_data, detected_lang = ocr_process(4)
+all_extracted_data, detected_lang = ocr_process(5)
 print("All extracted data:")
 print(json.dumps(all_extracted_data, ensure_ascii=False, indent=2))
-extracted_data = extract_structured_data(4, all_extracted_data, detected_lang, titre_poste="Data Scientist")
+extracted_data = extract_structured_data(5, all_extracted_data, detected_lang, titre_poste="Data Scientist")
 print("Final extracted data:")
 print(json.dumps(extracted_data, ensure_ascii=False, indent=2))
 print("OCR process completed successfully.")
