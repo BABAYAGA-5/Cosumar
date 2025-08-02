@@ -18,6 +18,10 @@ import spacy
 # Import Django models
 from resume_service.models import Candidat, Poste, Candidature
 import time
+from django.core.mail import send_mail
+from docx import Document
+from fpdf import FPDF
+from pdf_process import ocr_process, extract_structured_data, cv_process
 
 # Chargement du modèle NLP français
 nlp = spacy.load("fr_core_news_md")
@@ -97,10 +101,35 @@ def main():
                     print(f"[!] Fichier non pris en charge : {filename}")
                     continue
 
+                if ext == ".docx":
+                    # Convertir le fichier DOCX en PDF
+
+                    # Charger le document DOCX depuis les bytes
+                    docx_bytes = BytesIO(att.payload)
+                    document = Document(docx_bytes)
+
+                    # Créer un PDF temporaire
+                    pdf = FPDF()
+                    pdf.add_page()
+                    pdf.set_auto_page_break(auto=True, margin=15)
+                    pdf.set_font("Arial", size=12)
+
+                    for para in document.paragraphs:
+                        text = para.text.strip()
+                        if text:
+                            pdf.multi_cell(0, 10, text)
+
+                    # Sauvegarder le PDF dans un buffer mémoire
+                    pdf_buffer = BytesIO()
+                    pdf.output(pdf_buffer)
+                    pdf_bytes = pdf_buffer.getvalue()
+                    att.payload = pdf_bytes
+
                 candidat = candidat_existe(email)
                 print(f"Vérification de l'existence du candidat : {email} - ID {candidat.id if candidat else 'N/A'}")
                 if not candidat:
                     candidat_id = insert_candidat(email)
+                    candidat = Candidat.objects.get(id=candidat_id)
                 else:
                     candidat_id = candidat.id
                 if has_active_candidature(candidat_id):
@@ -110,11 +139,34 @@ def main():
 
                 print(f"[✔] Candidature enregistrée : ID {candidature.id} pour le poste {subject} et le candidat {candidat.id} ({email})")
 
+                if candidature:
+                    return True, email, subject, att.payload, candidature.id
+                else:
+                    return False, email, subject, None, None
+        return False, None, None, None, None
     except Exception as e:
         print("Erreur :", e)
+        return False, None, None, None, None
 
 if __name__ == "__main__":
     while True:
         print("Vérification des nouveaux emails...")
-        main()
+        success, email, subject, pdf_bytes, candidature_id = main()
+
+        if candidature_id is None or pdf_bytes is None:
+            continue
+        cv_process_result = cv_process(candidature_id, pdf_bytes)
+
+        if success and cv_process_result:
+            send_mail(
+                subject="Candidature reçue",
+                message=f"Votre candidature pour le poste {subject} a bien été reçue. Merci de postuler.\n"+
+                        f"ID de la candidature : {candidature_id}\n"+
+                        f"ID du candidat : {Candidature.objects.get(id=candidature_id).candidat_id}\n"+
+                        f"\n\nNous vous contacterons bientôt pour la suite du processus de recrutement."+
+                        f"\n\nCordialement,\nL'équipe de recrutement",
+                from_email=EMAIL_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
         time.sleep(5)  # Wait 5 seconds before checking again
