@@ -1,4 +1,5 @@
 
+import datetime
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -9,6 +10,10 @@ from .models import Utilisateur
 import jwt
 from django.conf import settings
 import hashlib
+import random
+import string
+from django.core.mail import send_mail
+import os
 
 def get_private_key():
     try:
@@ -57,8 +62,9 @@ def login(request):
             # Use HS256 algorithm since we're using SECRET_KEY as fallback
             algorithm = 'RS256' if 'BEGIN PRIVATE KEY' in private_key else 'HS256'
             token = jwt.encode(payload, private_key, algorithm=algorithm)
-            
-            return Response({'token': token, 'user': payload}, status=status.HTTP_200_OK)
+            exp = datetime.datetime.now() + datetime.timedelta(hours=1)
+
+            return Response({'token': token, 'exp': exp, 'user': payload}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Identifiants invalides',
                              'email': request.data.get("email"),
@@ -105,25 +111,34 @@ def jwtcheck(request):
 @api_view(['POST'])
 def signup(request):
     try:
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+
+        if not auth_header.startswith('Bearer '):
+            return Response({'error': 'Token missing or invalid'}, status=401)
+
+        jwt_token = auth_header.split(' ')[1]
+        print(f"Received JWT token: {jwt_token}")   
         prenom = request.data.get('prenom')
         nom = request.data.get('nom')
         email = request.data.get('email')
-        mot_de_passe = request.data.get('mot_de_passe')
-        confirmer_mot_de_passe = request.data.get('confirmer_mot_de_passe')
         
-        if not email or not mot_de_passe:
-            return Response({'error': 'Email and password are required'}, status=status.HTTP_400_BAD_REQUEST)
-        
+        if not email:
+            return Response({'error': 'Email est requis'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Check if user already exists
         if Utilisateur.objects.filter(email=email).exists():
-            return Response({'error': 'User already exists'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'L\'utilisateur existe déjà'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if mot_de_passe != confirmer_mot_de_passe:
-            return Response({'error': 'Passwords do not match',
-                             'mot_de_passe': mot_de_passe,
-                             'confirmer_mot_de_passe':confirmer_mot_de_passe}, status=status.HTTP_400_BAD_REQUEST)
+        mot_de_passe = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+        
+        send_mail(
+                subject="Bienvenue sur Cosumar Digital Recrutement",
+                message=f"Bonjour {prenom},\n\nVotre compte a été créé avec succès. Votre mot de passe est : {mot_de_passe} .\n\n Veuillez le changer après votre première connexion. \n\nMerci.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=False,
+            )
 
-        # Create new user
         mot_de_passe = hashlib.sha256(mot_de_passe.encode()).hexdigest()
         user = Utilisateur(email=email, mot_de_passe=mot_de_passe)
         if prenom:
@@ -131,9 +146,9 @@ def signup(request):
         if nom:
             user.nom = nom
         user.save()
-        
-        return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
-    
+
+        return Response({'message': 'Utilisateur créé avec succès'}, status=status.HTTP_201_CREATED)
+
     except Exception as e:
         print(f"Signup error: {str(e)}")
-        return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': 'Erreur interne du serveur'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

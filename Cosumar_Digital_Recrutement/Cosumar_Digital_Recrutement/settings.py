@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'resume_service',
     'rest_framework',
     'rest_framework_simplejwt',
+    'django_extensions'
 ]
 
 REST_FRAMEWORK = {
