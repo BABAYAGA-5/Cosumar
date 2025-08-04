@@ -1,9 +1,0 @@
-{
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJlbWFpbCI6Im90aG1hbmUycmFiYXRAZ21haWwuY29tIiwicm9sZSI6ImhyIiwiYXV0aCI6dHJ1ZX0.7qcr1EoaNyUBMoP9GeDIyMfeGyvFdoj41nPe7OFoDwA",
-    "user": {
-      "user_id": 1,
-      "email": "othmane2rabat@gmail.com",
-      "role": "hr",
-      "auth": true
-    }
-  }
