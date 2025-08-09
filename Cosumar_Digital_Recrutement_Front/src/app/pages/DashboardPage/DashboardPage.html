@@ -1,0 +1,188 @@
+<div class="dashboard-container">
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.collapsed]="isSidebarCollapsed()">
+    <div class="sidebar-header">
+      <button class="sidebar-toggle" (click)="toggleSidebar()">
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+        <span class="hamburger-line"></span>
+      </button>
+      
+      <div class="logo" style="margin-top: 20px;">
+        @if (!isSidebarCollapsed()) {
+          <h2 class="sidebar-text logo-main">COSUMAR DIGITAL</h2>
+          <h3 class="sidebar-text logo-sub">RECRUTEMENT</h3>
+        } @else {
+          <h2 class="logo-collapsed">C</h2>
+        }
+      </div>
+    </div>
+    
+    <nav class="sidebar-nav">
+      <ul class="nav-menu">
+        <li class="nav-item" [class.active]="activeMenuItem() === 'dashboard'" (click)="setActiveMenuItem('dashboard')" [attr.data-tooltip]="'Tableau de bord'">
+          <i class="icon dashboard-icon"></i>
+          @if (!isSidebarCollapsed()) {
+            <span class="sidebar-text">Tableau de bord</span>
+          }
+        </li>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'postes'" (click)="setActiveMenuItem('postes')" [attr.data-tooltip]="'Postes'">
+          <i class="icon postes-icon"></i>
+          @if (!isSidebarCollapsed()) {
+            <span class="sidebar-text">Postes</span>
+          }
+        </li>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'candidatures'" (click)="setActiveMenuItem('candidatures')" [attr.data-tooltip]="'Candidatures'">
+          <i class="icon candidatures-icon"></i>
+          @if (!isSidebarCollapsed()) {
+            <span class="sidebar-text">Candidatures</span>
+          }
+        </li>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'candidats'" (click)="setActiveMenuItem('candidats')" [attr.data-tooltip]="'Candidats'">
+          <i class="icon candidats-icon"></i>
+          @if (!isSidebarCollapsed()) {
+            <span class="sidebar-text">Candidats</span>
+          }
+        </li>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'utilisateurs'" (click)="setActiveMenuItem('utilisateurs')" [attr.data-tooltip]="'Utilisateurs'">
+          <i class="icon utilisateurs-icon"></i>
+          @if (!isSidebarCollapsed()) {
+            <span class="sidebar-text">Utilisateurs</span>
+          }
+        </li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-left">
+        <h1 class="page-title">{{ getPageTitle() }}</h1>
+      </div>
+      
+      <div class="header-right">
+        <div class="notifications">
+          <button class="notification-btn">
+            <i class="bell-icon"></i>
+            @if (notificationCount() > 0) {
+              <span class="notification-badge">{{ notificationCount() }}</span>
+            }
+          </button>
+        </div>
+        
+        <div class="user-menu">
+          <button class="user-button" (click)="toggleUserMenu()">
+            <div class="user-avatar">
+              <i class="user-icon"></i>
+            </div>
+            <span class="user-name">{{ userName() }}</span>
+            <i class="dropdown-arrow" [class.rotated]="isUserMenuOpen()"></i>
+          </button>
+          
+          @if (isUserMenuOpen()) {
+            <div class="user-dropdown">
+              <div class="user-info">
+                <div class="user-avatar-large">
+                  <i class="user-icon"></i>
+                </div>
+                <div class="user-details">
+                  <strong>{{ userName() }}</strong>
+                  <span class="user-role">{{ userRole() }}</span>
+                  <span class="user-email">{{ userEmail() }}</span>
+                </div>
+              </div>
+              <hr class="dropdown-divider">
+              <ul class="dropdown-menu">
+                <li>
+                  <button (click)="viewProfile()" class="dropdown-item">
+                    <i class="profile-icon"></i>
+                    <span>View Profile</span>
+                  </button>
+                </li>
+                <li>
+                  <button (click)="editProfile()" class="dropdown-item">
+                    <i class="edit-icon"></i>
+                    <span>Edit Profile</span>
+                  </button>
+                </li>
+                <li>
+                  <button (click)="accountSettings()" class="dropdown-item">
+                    <i class="settings-icon"></i>
+                    <span>Account Settings</span>
+                  </button>
+                </li>
+                <li>
+                  <hr class="dropdown-divider">
+                </li>
+                <li>
+                  <button (click)="logout()" class="dropdown-item logout-item">
+                    <i class="logout-icon"></i>
+                    <span>Logout</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          }
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-content">
+      <div class="content-area">
+        @switch (activeMenuItem()) {
+          @case ('dashboard') {
+            <div class="dashboard-home">
+              <div class="stats-grid">
+                <div class="stat-card">
+                  <div class="stat-icon postes-stat"></div>
+                  <div class="stat-info">
+                    <h3>{{ totalPostes() }}</h3>
+                    <p>Postes Actifs</p>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-icon candidatures-stat"></div>
+                  <div class="stat-info">
+                    <h3>{{ totalCandidatures() }}</h3>
+                    <p>Candidatures Reçues</p>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-icon utilisateurs-stat"></div>
+                  <div class="stat-info">
+                    <h3>{{ totalUtilisateurs() }}</h3>
+                    <p>Utilisateurs Actifs</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="charts-section">
+                <div class="chart-card">
+                  <h3>Évolution des Candidatures</h3>
+                  <div class="chart-placeholder">
+                    <p>Graphique des candidatures par mois</p>
+                  </div>
+                </div>
+                <div class="chart-card">
+                  <h3>Répartition par Département</h3>
+                  <div class="chart-placeholder">
+                    <p>Graphique des postes par département</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+          @default {
+            <div class="page-content">
+              <h2>{{ getPageTitle() }}</h2>
+              <p>Contenu pour {{ activeMenuItem() }} sera implémenté ici.</p>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </main>
+</div>

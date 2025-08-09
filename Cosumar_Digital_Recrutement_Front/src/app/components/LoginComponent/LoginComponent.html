@@ -1,0 +1,34 @@
+<div class="login-container">
+  <h2>Login</h2>
+  
+  <div class="login-form">
+    <div class="input-field">
+      <label for="username">Username:</label>
+      <InputComponent
+        [type]="'email'"
+        [variant]="'email'" 
+        [placeholder]="'Enter your email address'"
+        (input)="onEmailChange($event)">
+      </InputComponent>
+    </div>
+
+    <div class="input-field">
+      <label for="password">Password:</label>
+      <InputComponent 
+        [type]="'password'"
+        [variant]="'password'" 
+        [placeholder]="'Enter your password'"
+        (input)="onMotDePasseChange($event)">
+      </InputComponent>
+    </div>
+
+    <ButtonComponent 
+      [variant]="'primary'" 
+      [size]="'large'"
+      (buttonClick)="onLogin()">
+      Login
+    </ButtonComponent>
+
+    <p class="login-message" *ngIf="loginMessage">{{ loginMessage }}</p>
+  </div>
+</div>
