@@ -1,5 +1,6 @@
 
 import datetime
+import uuid
 from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -13,6 +14,7 @@ import hashlib
 import random
 import string
 from django.core.mail import send_mail
+from rest_framework_simplejwt.tokens import RefreshToken
 import os
 
 def get_private_key():
@@ -22,17 +24,7 @@ def get_private_key():
     except FileNotFoundError:
         return settings.SECRET_KEY
 
-def get_public_key():
-    try:
-        with open(settings.BASE_DIR / 'keys' / 'public.pem') as f:
-            return f.read()
-    except FileNotFoundError:
-        return settings.SECRET_KEY
 
-@csrf_exempt
-@api_view(['POST', 'GET', 'PUT', 'DELETE', 'PATCH'])
-def test(request):
-   return Response({'message': 'Test endpoint is working'}, status=status.HTTP_200_OK)
 
 @csrf_exempt
 @api_view(['POST'])
@@ -51,26 +43,22 @@ def login(request):
         user = Utilisateur.objects.get(email=email)
         
         if user.mot_de_passe == mot_de_passe:
-            payload = {
+            refresh = RefreshToken.for_user(user)
+
+            access_token = refresh.access_token
+            access_token['email'] = user.email
+            access_token['role'] = user.role
+
+            return Response({
+                'refresh': str(refresh), 
+                'access': str(access_token),
+                'user': {
                 'user_id': user.id,
                 'email': user.email,
-                'role': user.get_role_display() if hasattr(user, 'get_role_display') else user.role,
-                "auth": True
-            }
-            
-            private_key = get_private_key()
-            # Use HS256 algorithm since we're using SECRET_KEY as fallback
-            algorithm = 'RS256' if 'BEGIN PRIVATE KEY' in private_key else 'HS256'
-            token = jwt.encode(payload, private_key, algorithm=algorithm)
-            exp = datetime.datetime.now() + datetime.timedelta(hours=1)
-
-            return Response({'token': token, 'exp': exp, 'user': payload}, status=status.HTTP_200_OK)
+                'role': user.role,
+            }}, status=status.HTTP_200_OK)
         else:
-            return Response({'error': 'Identifiants invalides',
-                             'email': request.data.get("email"),
-                             'mot_de_passe':request.data.get("mot_de_passe"),
-                             'pass':user.mot_de_passe,
-                             'mail':user.email}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({'error': 'Identifiants invalides'}, status=status.HTTP_401_UNAUTHORIZED)
             
     except Utilisateur.DoesNotExist:
         return Response({'error': 'Utilisateur non trouvé'}, status=status.HTTP_404_NOT_FOUND)
@@ -79,33 +67,6 @@ def login(request):
         print(f"Login error: {str(e)}")
         return Response({'error': 'Erreur interne du serveur'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-def decode_jwt(token):
-    try:
-        verification_key = get_public_key()
-        algorithm = 'RS256' if 'BEGIN PUBLIC KEY' in verification_key else 'HS256'
-        return jwt.decode(token, verification_key, algorithms=[algorithm])
-    except Exception as e:
-        print(f"JWT decode error: {str(e)}")
-        raise
-
-@csrf_exempt
-@api_view(['POST'])
-def jwtcheck(request):
-    try:
-        token = request.data.get('token')
-        if not token:
-            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        payload = decode_jwt(token)
-        return Response({'payload': payload}, status=status.HTTP_200_OK)
-        
-    except jwt.ExpiredSignatureError:
-        return Response({'error': 'Token has expired'}, status=status.HTTP_401_UNAUTHORIZED)
-    except jwt.InvalidTokenError:
-        return Response({'error': 'Invalid token'}, status=status.HTTP_401_UNAUTHORIZED)
-    except Exception as e:
-        print(f"JWT check error: {str(e)}")
-        return Response({'error': 'Internal server error'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @csrf_exempt
 @api_view(['POST'])
@@ -124,6 +85,9 @@ def signup(request):
         
         if not email:
             return Response({'error': 'Email est requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not isinstance(email, str) or '@' not in email or '.' not in email:
+            return Response({'error': 'Email invalide'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Check if user already exists
         if Utilisateur.objects.filter(email=email).exists():
@@ -152,3 +116,8 @@ def signup(request):
     except Exception as e:
         print(f"Signup error: {str(e)}")
         return Response({'error': 'Erreur interne du serveur'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@csrf_exempt
+@api_view(['POST', 'GET'])
+def test(request):
+    return Response({'message': 'Test API call successful'}, status=status.HTTP_200_OK)

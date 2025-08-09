@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -57,7 +58,18 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    )
 }
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+}
+
+AUTH_USER_MODEL = 'auth_service.Utilisateur'
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -152,14 +164,7 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # React development server
-    "http://127.0.0.1:3000",
-]
 
-# Allow all origins during development (less secure, but easier for development)
-CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow specific headers
 CORS_ALLOW_HEADERS = [
@@ -183,3 +188,9 @@ CORS_ALLOW_METHODS = [
     'POST',
     'PUT',
 ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+

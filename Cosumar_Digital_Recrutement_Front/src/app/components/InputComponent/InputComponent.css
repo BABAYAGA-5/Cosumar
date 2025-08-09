@@ -1,0 +1,149 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+/* Text input */
+
+.password-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.password-input:focus {
+  outline: none;
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1);
+}
+
+.password-input::placeholder {
+  color: #9ca3af;
+}
+
+.text-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: #1e3a8a;
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+}
+
+.text-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Email input */
+.email-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.email-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.email-input::placeholder {
+  color: #9ca3af;
+}
+
+/* Number input */
+.number-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.number-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* Date input */
+.date-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+/* Tel input */
+.tel-input {
+  width: 100%;
+  height: 40px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.tel-input:focus {
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.tel-input::placeholder {
+  color: #9ca3af;
+}
+
+/* File input */
+.file-input {
+  width: 100%;
+  padding: 8px;
+  border: 2px dashed #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  background-color: #f9fafb;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.file-input:hover {
+  border-color: #d1d5db;
+  background-color: #f3f4f6;
+}
+
+.file-input:focus {
+  outline: none;
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.email-input,
+.password-input,
+.text-input,
+.number-input,
+.date-input,
+.tel-input,
+.file-input {
+  font-family: inherit; /* or explicitly set your font stack */
+}
