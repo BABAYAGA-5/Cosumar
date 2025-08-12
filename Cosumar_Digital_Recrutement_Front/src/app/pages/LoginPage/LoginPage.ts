@@ -25,6 +25,12 @@ export class LoginPage {
         this.loginMessage = 'Login successful!';
         localStorage.setItem('access', response.access);
         localStorage.setItem('refresh', response.refresh);
+        localStorage.setItem('user_id', response.user.user_id);
+        localStorage.setItem('role', response.user.role);
+        localStorage.setItem('email', response.user.email);
+        localStorage.setItem('prenom', response.user.prenom);
+        localStorage.setItem('nom', response.user.nom);
+
         console.log('Login successful:', response);
         this.router.navigate(['/dashboard'], { replaceUrl: true });
         console.log('Navigation to dashboard successful');

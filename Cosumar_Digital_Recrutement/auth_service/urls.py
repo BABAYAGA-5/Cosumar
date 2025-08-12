@@ -10,5 +10,4 @@ urlpatterns = [
     path('signup/', views.signup, name='signup'),
     path('token/refresh/', TokenRefreshView.as_view(), name='refresh_token'),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('test/', views.test, name='test'),  # New endpoint for testing
 ]

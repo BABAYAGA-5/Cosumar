@@ -21,7 +21,7 @@ import time
 from django.core.mail import send_mail
 from docx import Document
 from fpdf import FPDF
-from resume_service.pdf_process import cv_process
+from Cosumar_Digital_Recrutement.resume_service.CIN import cv_process
 
 
 # Chargement du modèle NLP français

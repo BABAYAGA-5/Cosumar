@@ -42,6 +42,9 @@ def login(request):
         # Check if user exists
         user = Utilisateur.objects.get(email=email)
         
+        if user.is_active == False:
+            return Response({'error': 'Utilisateur inactif'}, status=status.HTTP_403_FORBIDDEN)
+
         if user.mot_de_passe == mot_de_passe:
             refresh = RefreshToken.for_user(user)
 
@@ -54,6 +57,8 @@ def login(request):
                 'access': str(access_token),
                 'user': {
                 'user_id': user.id,
+                'prenom': user.prenom,
+                'nom': user.nom,
                 'email': user.email,
                 'role': user.role,
             }}, status=status.HTTP_200_OK)
