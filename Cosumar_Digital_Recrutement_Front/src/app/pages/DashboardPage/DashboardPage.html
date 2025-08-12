@@ -44,10 +44,18 @@
             <span class="sidebar-text">Candidats</span>
           }
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'utilisateurs'" (click)="setActiveMenuItem('utilisateurs')" [attr.data-tooltip]="'Utilisateurs'">
-          <i class="icon utilisateurs-icon"></i>
+        @if (userRole() === 'admin') {
+          <li class="nav-item" [class.active]="activeMenuItem() === 'utilisateurs'" (click)="setActiveMenuItem('utilisateurs')" [attr.data-tooltip]="'Utilisateurs'">
+            <i class="icon utilisateurs-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Utilisateurs</span>
+            }
+          </li>
+        }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'domaines'" (click)="setActiveMenuItem('domaines')" [attr.data-tooltip]="'Domaines'">
+          <i class="icon domaines-icon"></i>
           @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Utilisateurs</span>
+            <span class="sidebar-text">Domaines</span>
           }
         </li>
       </ul>
@@ -139,22 +147,45 @@
                 <div class="stat-card">
                   <div class="stat-icon postes-stat"></div>
                   <div class="stat-info">
-                    <h3>{{ totalPostes() }}</h3>
+                    @if (isLoading()) {
+                      <h3 class="loading">...</h3>
+                    } @else {
+                      <h3>{{ totalPostes() }}</h3>
+                    }
                     <p>Postes Actifs</p>
                   </div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-icon candidatures-stat"></div>
                   <div class="stat-info">
-                    <h3>{{ totalCandidatures() }}</h3>
+                    @if (isLoading()) {
+                      <h3 class="loading">...</h3>
+                    } @else {
+                      <h3>{{ totalCandidatures() }}</h3>
+                    }
                     <p>Candidatures Reçues</p>
                   </div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-icon utilisateurs-stat"></div>
                   <div class="stat-info">
-                    <h3>{{ totalUtilisateurs() }}</h3>
+                    @if (isLoading()) {
+                      <h3 class="loading">...</h3>
+                    } @else {
+                      <h3>{{ totalUtilisateurs() }}</h3>
+                    }
                     <p>Utilisateurs Actifs</p>
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-icon candidatures-stat"></div>
+                  <div class="stat-info">
+                    @if (isLoading()) {
+                      <h3 class="loading">...</h3>
+                    } @else {
+                      <h3>{{ pendingCandidatures() }}</h3>
+                    }
+                    <p>En Attente</p>
                   </div>
                 </div>
               </div>
