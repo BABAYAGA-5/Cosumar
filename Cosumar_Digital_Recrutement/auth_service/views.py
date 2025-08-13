@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+
+from resume_service.models import Logs
 from .models import Utilisateur
 import jwt
 from django.conf import settings
@@ -115,6 +117,9 @@ def signup(request):
         if nom:
             user.nom = nom
         user.save()
+
+        # Log the signup action
+        Logs.objects.create(action=f"Creation d'utilisateur id {user.id}", utilisateur=user)
 
         return Response({'message': 'Utilisateur créé avec succès'}, status=status.HTTP_201_CREATED)
 

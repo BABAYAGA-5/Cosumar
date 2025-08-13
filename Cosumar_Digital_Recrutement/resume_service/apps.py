@@ -6,6 +6,7 @@ class ResumeServiceConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'resume_service'
 
+    """
     def ready(self):
         if os.environ.get('RUN_MAIN') and os.environ.get('RUN_MAIN', None) != 'true':
             return
@@ -18,3 +19,4 @@ class ResumeServiceConfig(AppConfig):
 
         thread = threading.Thread(target=run_in_thread, daemon=True)
         thread.start()
+    """

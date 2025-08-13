@@ -1,12 +1,25 @@
 from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import FileUploadParser
 from django.shortcuts import render
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from rest_framework import status
 import os
+import filetype
+
+# Handle CIN module import with fallback
+try:
+    from .CIN import extract_cin_data
+except ImportError:
+    try:
+        from CIN import extract_cin_data
+    except ImportError:
+        def extract_cin_data(image_bytes):
+            """Fallback function when CIN module is not available"""
+            return {}
 
 from resume_service.models import Stage, Stagiaire, Sujet
 from auth_service.models import Utilisateur
@@ -44,51 +57,58 @@ def dashboard_stats(request):
 
 @csrf_exempt
 @api_view(['POST'])
-def upload_cin(request):
+@permission_classes([IsAuthenticated])
+def creation_stage(request):
     """Upload and scan Moroccan CIN (ID card) image"""
     try:
-        if 'file' not in request.FILES:
-            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+        stagiaire_id = request.data.get('stagiaire_id')
+        sujet = request.data.get('sujet')
+        nature = request.data.get('nature')
+        cin_file = request.FILES['cin']
         
-        cin_file = request.FILES['file']
-        
-        allowed_extensions = ['.jpg', '.jpeg', '.png']
-        file_extension = os.path.splitext(cin_file.name)[1].lower()
-        
-        if file_extension not in allowed_extensions:
+        if sujet is None or nature is None:
             return Response({
-                "error": "Invalid file type. Please upload an image file"
+                "error": "Sujet et nature sont requis."
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        stage_id = request.data.get('stage_id')
+        allowed_extensions = ['jpg', 'jpeg', 'png']
 
-        if not stage_id:
-            return Response({"error": "stage_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+        ext = os.path.splitext(request.FILES['cin'].name)[1].lower().lstrip('.') 
 
-        image_bytes = cin_file.read()
-        
-        try:
-            stage = Stage.objects.get(id=stage_id)
-            stage.cin = image_bytes
-            stage.save()
-        except Stage.DoesNotExist:
-            return Response({"error": "Stage not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        from .CIN import extract_cin_data
-        data = extract_cin_data(image_bytes)
-
-        if data is not {}:
+        if ext not in allowed_extensions:
             return Response({
-                "message": "CIN scanned successfully",
-                "stage_id": stage_id
+                "error": "Type de fichier non autorisé. Veuillez télécharger une image aux formats JPG, JPEG ou PNG.",
+                "type": ext
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        cin_bytes = cin_file.read()
+        data = extract_cin_data(cin_bytes)
+        
+        print(f"Extracted data: {data}")  # Debug logging
+        
+        # Check if we have valid CIN data
+        if data and data.get('cin') and data.get('cin') != 'unknown':
+            stagiaire = Stagiaire.objects.create(
+                matricule=data.get('cin'), 
+                prenom=data.get('prenom', 'unknown'), 
+                nom=data.get('nom', 'unknown'), 
+                date_naissance=data.get('date_naissance'), 
+                cin=cin_bytes
+            )
+            stagiaire.save()
+            stage = Stage.objects.create(stagiaire=stagiaire, nature=nature, sujet=sujet)
+            stage.save()
+            return Response({
+                "message": "CIN scannée avec succès",
+                "data": data
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                "error": "CIN scan failed"
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                "error": "CIN scan échoué - aucune donnée valide extraite",
+                "extracted_data": data
+            }, status=status.HTTP_400_BAD_REQUEST)
             
     except Exception as e:
         return Response({
             "error": f"CIN processing error: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
