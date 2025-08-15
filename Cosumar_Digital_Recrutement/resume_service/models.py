@@ -6,9 +6,9 @@ from numpy import extract
 
 class Stagiaire(models.Model):
     matricule = models.CharField(primary_key=True, max_length=8, default='')
-    prenom = models.CharField(max_length=100)
-    nom = models.CharField(max_length=100)
-    email = models.EmailField(max_length=100, unique=True)
+    prenom = models.CharField(max_length=100, null=True, blank=True)
+    nom = models.CharField(max_length=100, null=True, blank=True)
+    email = models.EmailField(max_length=100, unique=True, null=True, blank=True)
     num_tel = models.CharField(max_length=15, unique=True, blank=True, null=True)
     date_naissance = models.DateField(null=True, blank=True)
     cin = models.BinaryField(null=True, blank=True)
