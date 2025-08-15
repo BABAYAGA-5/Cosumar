@@ -26,10 +26,10 @@
             <span class="sidebar-text">Tableau de bord</span>
           }
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'postes'" (click)="setActiveMenuItem('postes')" [attr.data-tooltip]="'Postes'">
-          <i class="icon postes-icon"></i>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'creation_stage'" (click)="setActiveMenuItem('creation_stage')" [attr.data-tooltip]="'Création de Stage'">
+          <i class="icon creation_stage-icon"></i>
           @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Postes</span>
+            <span class="sidebar-text">Création de Stage</span>
           }
         </li>
         <li class="nav-item" [class.active]="activeMenuItem() === 'candidatures'" (click)="setActiveMenuItem('candidatures')" [attr.data-tooltip]="'Candidatures'">
@@ -203,6 +203,302 @@
                     <p>Graphique des postes par département</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          }
+          @case ('creation_stage') {
+            <div class="creation-stage-content">
+              <h2>Création de Stage</h2>
+              <div class="stage-form">
+                <div class="form-section">
+                  <h3>CIN du Stagiaire</h3>
+                  <div class="file-upload-section">
+                    <div class="file-upload-area" 
+                         (dragover)="onDragOver($event)" 
+                         (dragleave)="onDragLeave($event)" 
+                         (drop)="onFileDropped($event)"
+                         [class.dragover]="isDragOver">
+                      <input 
+                        type="file" 
+                        id="cin-file" 
+                        #fileInput
+                        accept=".jpg,.jpeg,.png" 
+                        (change)="onFileSelected($event)"
+                        style="display: none"
+                      >
+                      
+                      @if (!selectedFile()) {
+                        <div class="upload-placeholder">
+                          <i class="upload-icon"></i>
+                          <p>Glissez-déposez votre CIN ici ou</p>
+                          <button type="button" class="upload-btn" (click)="fileInput.click()">
+                            Parcourir les fichiers
+                          </button>
+                          <small>JPG, JPEG, PNG uniquement</small>
+                        </div>
+                      } @else if (isUploading()) {
+                        <div class="uploading-state">
+                          <span class="spinner"></span>
+                          <p>Scan du CIN en cours...</p>
+                        </div>
+                      } @else {
+                        <div class="file-preview">
+                          <div class="file-info">
+                            <i class="file-icon"></i>
+                            <span class="file-name">{{ selectedFile()?.name }}</span>
+                            <span class="file-size">({{ getFileSize(selectedFile()?.size || 0) }})</span>
+                          </div>
+                          <button type="button" class="remove-file-btn" (click)="removeFile()">
+                            <i class="delete-icon"></i>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                    
+                    @if (selectedFile() && !isUploading()) {
+                      <div class="cin-preview">
+                        <h4>Aperçu du CIN</h4>
+                        <img [src]="cinPreviewUrl()" alt="Aperçu CIN" class="cin-image">
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                @if (!extractedData() && selectedFile() && !isUploading()) {
+                  <div class="form-actions">
+                    <button type="button" class="cancel-btn" (click)="removeFile()">
+                      Supprimer le fichier
+                    </button>
+                  </div>
+                }
+
+                @if (uploadMessage() && uploadMessage()?.type === 'error') {
+                  <div class="message error">
+                    <p>{{ uploadMessage()?.text }}</p>
+                  </div>
+                }
+
+                @if (extractedData()) {
+                  <div class="extracted-data-form">
+                    <h3>Données extraites du CIN</h3>
+                    <p class="form-note">Vérifiez et modifiez les informations si nécessaire :</p>
+                    
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label for="nom">Nom</label>
+                        <textarea 
+                          id="nom" 
+                          [value]="extractedData()?.nom || ''" 
+                          (input)="updateExtractedData('nom', $event)"
+                          placeholder="Entrez le nom"
+                          rows="2"
+                        ></textarea>
+                      </div>
+                      
+                      <div class="form-group">
+                        <label for="prenom">Prénom</label>
+                        <textarea 
+                          id="prenom" 
+                          [value]="extractedData()?.prenom || ''" 
+                          (input)="updateExtractedData('prenom', $event)"
+                          placeholder="Entrez le prénom"
+                          rows="2"
+                        ></textarea>
+                      </div>
+                      
+                      <div class="form-group">
+                        <label for="cin">Numéro CIN</label>
+                        <input 
+                          type="text" 
+                          id="cin" 
+                          [value]="extractedData()?.cin || ''" 
+                          (input)="updateExtractedData('cin', $event)"
+                          placeholder="Entrez le numéro CIN"
+                        >
+                      </div>
+                      
+                      <div class="form-group">
+                        <label for="date_naissance">Date de naissance</label>
+                        <input 
+                          type="date" 
+                          id="date_naissance" 
+                          [value]="extractedData()?.date_naissance || ''" 
+                          (input)="updateExtractedData('date_naissance', $event)"
+                        >
+                      </div>
+                    </div>
+
+                    <!-- Additional Documents Section -->
+                    <div class="additional-documents">
+                      <h3>Documents Complémentaires</h3>
+                      <p class="form-note">Veuillez télécharger les documents suivants :</p>
+                      
+                      <div class="documents-grid">
+                        <!-- Convention -->
+                        <div class="document-upload-section">
+                          <h4>Convention <span class="required">*</span></h4>
+                          <div class="mini-upload-area" 
+                               (dragover)="onDocumentDragOver($event, 'convention')" 
+                               (dragleave)="onDocumentDragLeave($event, 'convention')" 
+                               (drop)="onDocumentDropped($event, 'convention')"
+                               [class.dragover]="documentDragStates()['convention']">
+                            <input 
+                              type="file" 
+                              #conventionInput
+                              accept=".pdf,.doc,.docx" 
+                              (change)="onDocumentSelected($event, 'convention')"
+                              style="display: none"
+                            >
+                            
+                            @if (!documents()['convention']) {
+                              <div class="mini-upload-placeholder">
+                                <i class="mini-upload-icon">📄</i>
+                                <p>Convention de stage</p>
+                                <button type="button" class="mini-upload-btn" (click)="conventionInput.click()">
+                                  Télécharger
+                                </button>
+                                <small>PDF, DOC, DOCX</small>
+                              </div>
+                            } @else {
+                              <div class="mini-file-preview">
+                                <span class="mini-file-name">{{ documents()['convention']?.name }}</span>
+                                <button type="button" class="mini-remove-btn" (click)="removeDocument('convention')">×</button>
+                              </div>
+                            }
+                          </div>
+                        </div>
+
+                        <!-- CV -->
+                        <div class="document-upload-section">
+                          <h4>CV <span class="required">*</span></h4>
+                          <div class="mini-upload-area" 
+                               (dragover)="onDocumentDragOver($event, 'cv')" 
+                               (dragleave)="onDocumentDragLeave($event, 'cv')" 
+                               (drop)="onDocumentDropped($event, 'cv')"
+                               [class.dragover]="documentDragStates()['cv']">
+                            <input 
+                              type="file" 
+                              #cvInput
+                              accept=".pdf,.doc,.docx" 
+                              (change)="onDocumentSelected($event, 'cv')"
+                              style="display: none"
+                            >
+                            
+                            @if (!documents()['cv']) {
+                              <div class="mini-upload-placeholder">
+                                <i class="mini-upload-icon">📋</i>
+                                <p>Curriculum Vitae</p>
+                                <button type="button" class="mini-upload-btn" (click)="cvInput.click()">
+                                  Télécharger
+                                </button>
+                                <small>PDF, DOC, DOCX</small>
+                              </div>
+                            } @else {
+                              <div class="mini-file-preview">
+                                <span class="mini-file-name">{{ documents()['cv']?.name }}</span>
+                                <button type="button" class="mini-remove-btn" (click)="removeDocument('cv')">×</button>
+                              </div>
+                            }
+                          </div>
+                        </div>
+
+                        <!-- Assurance -->
+                        <div class="document-upload-section">
+                          <h4>Assurance <span class="required">*</span></h4>
+                          <div class="mini-upload-area" 
+                               (dragover)="onDocumentDragOver($event, 'assurance')" 
+                               (dragleave)="onDocumentDragLeave($event, 'assurance')" 
+                               (drop)="onDocumentDropped($event, 'assurance')"
+                               [class.dragover]="documentDragStates()['assurance']">
+                            <input 
+                              type="file" 
+                              #assuranceInput
+                              accept=".pdf,.doc,.docx" 
+                              (change)="onDocumentSelected($event, 'assurance')"
+                              style="display: none"
+                            >
+                            
+                            @if (!documents()['assurance']) {
+                              <div class="mini-upload-placeholder">
+                                <i class="mini-upload-icon">🛡️</i>
+                                <p>Attestation d'assurance</p>
+                                <button type="button" class="mini-upload-btn" (click)="assuranceInput.click()">
+                                  Télécharger
+                                </button>
+                                <small>PDF, DOC, DOCX</small>
+                              </div>
+                            } @else {
+                              <div class="mini-file-preview">
+                                <span class="mini-file-name">{{ documents()['assurance']?.name }}</span>
+                                <button type="button" class="mini-remove-btn" (click)="removeDocument('assurance')">×</button>
+                              </div>
+                            }
+                          </div>
+                        </div>
+
+                        <!-- Lettre de motivation (Optionnel) -->
+                        <div class="document-upload-section">
+                          <h4>Lettre de motivation <span class="optional">(Optionnel)</span></h4>
+                          <div class="mini-upload-area" 
+                               (dragover)="onDocumentDragOver($event, 'lettre_motivation')" 
+                               (dragleave)="onDocumentDragLeave($event, 'lettre_motivation')" 
+                               (drop)="onDocumentDropped($event, 'lettre_motivation')"
+                               [class.dragover]="documentDragStates()['lettre_motivation']">
+                            <input 
+                              type="file" 
+                              #lettreInput
+                              accept=".pdf,.doc,.docx" 
+                              (change)="onDocumentSelected($event, 'lettre_motivation')"
+                              style="display: none"
+                            >
+                            
+                            @if (!documents()['lettre_motivation']) {
+                              <div class="mini-upload-placeholder">
+                                <i class="mini-upload-icon">✉️</i>
+                                <p>Lettre de motivation</p>
+                                <button type="button" class="mini-upload-btn" (click)="lettreInput.click()">
+                                  Télécharger
+                                </button>
+                                <small>PDF, DOC, DOCX</small>
+                              </div>
+                            } @else {
+                              <div class="mini-file-preview">
+                                <span class="mini-file-name">{{ documents()['lettre_motivation']?.name }}</span>
+                                <button type="button" class="mini-remove-btn" (click)="removeDocument('lettre_motivation')">×</button>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="save-actions">
+                      <button 
+                        type="button" 
+                        class="save-btn"
+                        [disabled]="isSaving() || !canSaveUser()"
+                        (click)="saveUser()"
+                      >
+                        @if (isSaving()) {
+                          <span class="spinner"></span>
+                          Enregistrement...
+                        } @else {
+                          Enregistrer l'utilisateur
+                        }
+                      </button>
+                      
+                      <button type="button" class="cancel-btn" (click)="resetExtractedData()">
+                        Annuler
+                      </button>
+                    </div>
+
+                    @if (saveMessage()) {
+                      <div class="message" [class]="saveMessage()?.type">
+                        <p>{{ saveMessage()?.text }}</p>
+                      </div>
+                    }
+                  </div>
+                }
               </div>
             </div>
           }

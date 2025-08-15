@@ -170,3 +170,7 @@ WHERE id = 1;
 UPDATE resume_service_domaine
 SET keywords = keywords::jsonb - 'new_keyword'
 WHERE id = 1;
+
+
+INSERT INTO resume_service_sujet (titre, description)
+VALUES ('Développement Web Django', 'Sujet pour un projet de développement d''une application web avec Django.');

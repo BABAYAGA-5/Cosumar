@@ -5,13 +5,13 @@ from datetime import datetime
 from numpy import extract
 
 class Stagiaire(models.Model):
-    id = models.AutoField(primary_key=True)
-    prenom = models.CharField(max_length=100)
-    nom = models.CharField(max_length=100)
-    email = models.EmailField(max_length=100, unique=True)
+    matricule = models.CharField(primary_key=True, max_length=8, default='')
+    prenom = models.CharField(max_length=100, null=True, blank=True)
+    nom = models.CharField(max_length=100, null=True, blank=True)
+    email = models.EmailField(max_length=100, unique=True, null=True, blank=True)
     num_tel = models.CharField(max_length=15, unique=True, blank=True, null=True)
     date_naissance = models.DateField(null=True, blank=True)
-    num_cin = models.CharField(max_length=8, unique=True, blank=True, null=True)
+    cin = models.BinaryField(null=True, blank=True)
     date_creation = models.DateTimeField(auto_now_add=True)
     deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
@@ -58,7 +58,6 @@ class Stage(models.Model):
     assurance = models.BinaryField(null=True, blank=True)
     lettre_motivation = models.BinaryField(null=True, blank=True)
     cv = models.BinaryField(null=True, blank=True)
-    cin = models.BinaryField(null=True, blank=True)
 
     def check_documents_and_expire(self):
         if self.statut == 'accepte':
@@ -68,6 +67,13 @@ class Stage(models.Model):
 
     def __str__(self):
         return f"Candidature de {self.candidat.prenom} {self.candidat.nom} pour le sujet de {self.sujet.titre}"
+
+
+class Logs(models.Model):
+    id = models.AutoField(primary_key=True)
+    utilisateur = models.ForeignKey('auth_service.Utilisateur', on_delete=models.CASCADE)
+    action = models.CharField(max_length=100)
+    date_action = models.DateTimeField(auto_now_add=True)
 
 
 class Meta:
