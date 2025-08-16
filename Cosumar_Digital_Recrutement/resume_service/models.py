@@ -37,22 +37,24 @@ class Stage(models.Model):
         ('alternance', 'Alternance'),
     ])
     sujet = models.ForeignKey(Sujet, on_delete=models.CASCADE, related_name='candidatures')
-    date_candidature = models.DateTimeField(auto_now_add=True)
+    date_debut = models.DateField(null=True, blank=True)
+    date_fin = models.DateField(null=True, blank=True)
+    prolongation = models.BooleanField(default=False)
     statut = models.CharField(
         max_length=50,
         choices=[
-            ('en_attente', 'En attente'),
-            ('accepte', 'Accepté'),
-            ('refuse', 'Refusé'),
+            ('annule', 'Annulé'),
             ('en_attente_depot_dossier', 'En attente de dépôt de dossier'),
             ('expire', 'Expiré'),
             ('en_attente_visite_medicale', 'En attente de visite médicale'),
             ('en_attente_signature_de_l_encadrant', 'En attente de signature de l\'encadrant'),
             ('en_attente_signature_du_responsable_RH', 'En attente de signature du responsable RH'),
             ('en_attente_signature_du_stagiaire', 'En attente de signature du stagiaire'),
-            ('stage_en_cours', 'Stage en cours')
+            ('stage_en_cours', 'Stage en cours'),
+            ('en_attente_depot_rapport', 'En attente de dépôt de rapport'),
+            ('termine', 'Terminé')
         ],
-        default='en_attente'
+        default='en_attente_depot_dossier'
     )
     convention = models.BinaryField(null=True, blank=True)
     assurance = models.BinaryField(null=True, blank=True)
