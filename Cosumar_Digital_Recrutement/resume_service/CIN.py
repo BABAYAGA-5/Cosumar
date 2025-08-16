@@ -97,7 +97,6 @@ def extract_cin_data(image_bytes):
         return {}
     
     lines = scan_cin(img)
-    print(f"Extracted lines: {lines}")  # Debug logging
     cin_data = {}
     birth_date = extract_birth_date(lines)
     first_name, last_name = extract_name(lines)

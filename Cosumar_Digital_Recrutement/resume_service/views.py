@@ -79,7 +79,7 @@ def scan_cin(request):
 
         # Extract data
         data = extract_cin_data(cin_bytes)
-        print(f"Extracted data: {data}")
+
 
         if not data or not data.get('cin') or data.get('cin') == 'unknown':
             return Response({
