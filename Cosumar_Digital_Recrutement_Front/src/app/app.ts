@@ -15,7 +15,7 @@ export class App {
   responseData: any;
   onSubmit() {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+    const timeout = setTimeout(() => controller.abort(), 5000);
 
     fetch(environment.apiUrl + 'auth/test', {
       method: 'GET',
