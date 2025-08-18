@@ -1,0 +1,567 @@
+<div class="creation-stage-content">
+  <h2>Création de Stage</h2>
+  <div class="stage-form">
+    <div class="form-section">
+      <h3>Sélection du Stagiaire <span class="required">*</span></h3>
+      
+      <!-- Selection Method -->
+      <div class="selection-method">
+        <div class="radio-group">
+          <label class="radio-option">
+            <input 
+              type="radio" 
+              name="candidateMethod" 
+              value="new" 
+              [checked]="candidateMethod() === 'new'"
+              (change)="setCandidateMethod('new')"
+            >
+            <span class="radio-label">Nouveau candidat (Scanner CIN)</span>
+          </label>
+          <label class="radio-option">
+            <input 
+              type="radio" 
+              name="candidateMethod" 
+              value="existing" 
+              [checked]="candidateMethod() === 'existing'"
+              (change)="setCandidateMethod('existing')"
+            >
+            <span class="radio-label">Stagiaire existant</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Existing Candidate Search -->
+      @if (candidateMethod() === 'existing') {
+        <div class="existing-candidate-section">
+          <div class="form-group">
+            <label for="candidate-search">Rechercher un stagiaire existant</label>
+            <div class="search-container">
+              <input 
+                type="text"
+                id="candidate-search"
+                [value]="searchQuery()"
+                (input)="onSearchQueryChange($event)"
+                placeholder="Rechercher par nom, prénom ou matricule..."
+                class="search-input"
+              >
+              <i class="search-icon">🔍</i>
+            </div>
+            
+            @if (isLoadingCandidates()) {
+              <div class="search-loading">
+                <span class="spinner small"></span>
+                <span>Chargement des candidats...</span>
+              </div>
+            }
+            
+            @if (searchQuery() && filteredCandidates().length > 0) {
+              <div class="search-results">
+                @for (candidate of filteredCandidates(); track candidate.matricule) {
+                  <div 
+                    class="candidate-item"
+                    [class.selected]="selectedCandidate()?.matricule === candidate.matricule"
+                    (click)="selectCandidate(candidate)"
+                  >
+                    <div class="candidate-item-info">
+                      <span class="candidate-name">{{ candidate.prenom }} {{ candidate.nom }}</span>
+                      <span class="candidate-matricule">Matricule: {{ candidate.matricule }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+            
+            @if (searchQuery() && filteredCandidates().length === 0 && !isLoadingCandidates()) {
+              <div class="no-results">
+                <p>Aucun stagiaire trouvé pour "{{ searchQuery() }}"</p>
+              </div>
+            }
+          </div>
+          
+          @if (selectedCandidate()) {
+            <div class="candidate-preview">
+              <h4>Stagiaire sélectionné</h4>
+              <div class="candidate-info">
+                <p><strong>Nom:</strong> {{ selectedCandidate()?.nom }}</p>
+                <p><strong>Prénom:</strong> {{ selectedCandidate()?.prenom }}</p>
+                <p><strong>Matricule:</strong> {{ selectedCandidate()?.matricule }}</p>
+                <p><strong>Date de naissance:</strong> {{ selectedCandidate()?.date_naissance || 'Non renseignée' }}</p>
+              </div>
+              <button type="button" class="clear-selection-btn" (click)="clearCandidateSelection()">
+                Changer de stagiaire
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- New Candidate CIN Upload -->
+      @if (candidateMethod() === 'new') {
+        <div class="file-upload-section">
+          <div class="file-upload-area" 
+               (dragover)="onDragOver($event)" 
+               (dragleave)="onDragLeave($event)" 
+               (drop)="onFileDropped($event)"
+               [class.dragover]="isDragOver">
+            <input 
+              type="file" 
+              id="cin-file" 
+              #fileInput
+              accept=".jpg,.jpeg,.png" 
+              (change)="onFileSelected($event)"
+              style="display: none"
+            >
+            
+            @if (!selectedFile()) {
+              <div class="upload-placeholder">
+                <i class="upload-icon"></i>
+                <p>Glissez-déposez votre CIN ici ou</p>
+                <button type="button" class="upload-btn" (click)="fileInput.click()">
+                  Parcourir les fichiers
+                </button>
+                <small>JPG, JPEG, PNG uniquement</small>
+              </div>
+            } @else if (isUploading()) {
+              <div class="uploading-state">
+                <span class="spinner"></span>
+                <p>Scan du CIN en cours...</p>
+              </div>
+            } @else {
+              <div class="file-preview">
+                <div class="file-info">
+                  <i class="file-icon"></i>
+                  <span class="file-name">{{ selectedFile()?.name }}</span>
+                  <span class="file-size">({{ getFileSize(selectedFile()?.size || 0) }})</span>
+                </div>
+                <button type="button" class="remove-file-btn" (click)="removeFile()">
+                  <i class="delete-icon"></i>
+                </button>
+              </div>
+            }
+          </div>
+          
+          @if (selectedFile() && !isUploading()) {
+            <div class="cin-preview">
+              <h4>Aperçu du CIN</h4>
+              <img [src]="cinPreviewUrl()" alt="Aperçu CIN" class="cin-image">
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    @if (!extractedData() && selectedFile() && !isUploading() && candidateMethod() === 'new') {
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="removeFile()">
+          Supprimer le fichier
+        </button>
+      </div>
+    }
+
+    @if (uploadMessage() && uploadMessage()?.type === 'error') {
+      <div class="message error">
+        <p>{{ uploadMessage()?.text }}</p>
+      </div>
+    }
+
+    @if (extractedData() || selectedCandidate()) {
+      <div class="extracted-data-form">
+        <h3>Données extraites du CIN</h3>
+        <p class="form-note">Vérifiez et modifiez les informations si nécessaire :</p>
+        
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="nom">Nom</label>
+            <textarea 
+              id="nom" 
+              [value]="extractedData()?.nom || ''" 
+              (input)="updateExtractedData('nom', $event)"
+              placeholder="Entrez le nom"
+              rows="2"
+            ></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="prenom">Prénom</label>
+            <textarea 
+              id="prenom" 
+              [value]="extractedData()?.prenom || ''" 
+              (input)="updateExtractedData('prenom', $event)"
+              placeholder="Entrez le prénom"
+              rows="2"
+            ></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="cin">Numéro CIN</label>
+            <input 
+              type="text" 
+              id="cin" 
+              [value]="extractedData()?.cin || ''" 
+              (input)="updateExtractedData('cin', $event)"
+              placeholder="Entrez le numéro CIN"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="date_naissance">Date de naissance</label>
+            <input 
+              type="date" 
+              id="date_naissance" 
+              [value]="extractedData()?.date_naissance || ''" 
+              (input)="updateExtractedData('date_naissance', $event)"
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="nature">Nature du stage <span class="required">*</span></label>
+            <select 
+              id="nature" 
+              [value]="stageData()?.nature || ''" 
+              (change)="updateStageData('nature', $event)"
+              required
+            >
+              <option value="">Sélectionnez la nature</option>
+              <option value="stage">Stage</option>
+              <option value="pfe">PFE</option>
+              <option value="alternance">Alternance</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="date_debut">Date de début <span class="required">*</span></label>
+            <input 
+              type="date" 
+              id="date_debut" 
+              [value]="stageData()?.date_debut || ''" 
+              (input)="updateStageData('date_debut', $event)"
+              required
+            >
+          </div>
+          
+          <div class="form-group">
+            <label for="date_fin">Date de fin <span class="required">*</span></label>
+            <input 
+              type="date" 
+              id="date_fin" 
+              [value]="stageData()?.date_fin || ''" 
+              (input)="updateStageData('date_fin', $event)"
+              required
+            >
+          </div>
+        </div>
+
+        <!-- Sujet Selection Section -->
+        <div class="sujet-selection-section">
+          <h3>Sujet de Stage <span class="optional">(Optionnel)</span></h3>
+          <p class="form-note">Recherchez et assignez un sujet spécifique pour ce stage :</p>
+          
+          <div class="form-group">
+            <label for="sujet-search">Rechercher un sujet</label>
+            <div class="search-container">
+              <input 
+                type="text"
+                id="sujet-search"
+                [value]="sujetSearchQuery()"
+                (input)="onSujetSearchQueryChange($event)"
+                placeholder="Rechercher par titre ou description..."
+                class="search-input"
+              >
+              <i class="search-icon">🔍</i>
+            </div>
+            
+            @if (isLoadingSujets()) {
+              <div class="search-loading">
+                <span class="spinner small"></span>
+                <span>Recherche en cours...</span>
+              </div>
+            }
+            
+            @if (sujetSearchQuery() && filteredSujets().length > 0) {
+              <div class="search-results">
+                @for (sujet of filteredSujets(); track sujet.id) {
+                  <div 
+                    class="sujet-item"
+                    [class.selected]="selectedSujet()?.id === sujet.id"
+                    (click)="selectSujet(sujet)"
+                  >
+                    <div class="sujet-item-info">
+                      <span class="sujet-title">{{ sujet.titre }}</span>
+                      @if (sujet.description) {
+                        <span class="sujet-description">{{ sujet.description | slice:0:100 }}{{ sujet.description.length > 100 ? '...' : '' }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+            
+            @if (sujetSearchQuery() && filteredSujets().length === 0 && !isLoadingSujets()) {
+              <div class="no-results">
+                <p>Aucun sujet trouvé pour "{{ sujetSearchQuery() }}"</p>
+              </div>
+            }
+          </div>
+          
+          @if (selectedSujet()) {
+            <div class="sujet-preview">
+              <h4>Sujet sélectionné</h4>
+              <div class="sujet-info">
+                <p><strong>Titre:</strong> {{ selectedSujet()?.titre }}</p>
+                @if (selectedSujet()?.description) {
+                  <p><strong>Description:</strong> {{ selectedSujet()?.description }}</p>
+                }
+              </div>
+              <button type="button" class="clear-selection-btn" (click)="clearSujetSelection()">
+                Changer de sujet
+              </button>
+            </div>
+          }
+        </div>
+
+        <!-- Required CV Section -->
+        <div class="required-cv-section">
+          <h3>CV du Stagiaire <span class="required">*</span></h3>
+          <p class="form-note important">Le CV est requis pour créer le stage</p>
+          
+          <div class="cv-upload-area" 
+               (dragover)="onDocumentDragOver($event, 'cv')" 
+               (dragleave)="onDocumentDragLeave($event, 'cv')" 
+               (drop)="onDocumentDropped($event, 'cv')"
+               [class.dragover]="documentDragStates()['cv']">
+            <input 
+              type="file" 
+              #cvRequiredInput
+              accept=".pdf,.doc,.docx" 
+              (change)="onDocumentSelected($event, 'cv')"
+              style="display: none"
+            >
+            
+            @if (!documents()['cv']) {
+              <div class="upload-placeholder">
+                <i class="upload-icon">📋</i>
+                <p>Glissez-déposez le CV ici ou</p>
+                <button type="button" class="upload-btn" (click)="cvRequiredInput.click()">
+                  Parcourir les fichiers
+                </button>
+                <small>PDF, DOC, DOCX uniquement</small>
+              </div>
+            } @else {
+              <div class="file-preview">
+                <div class="file-info">
+                  <i class="file-icon">📋</i>
+                  <span class="file-name">{{ documents()['cv']?.name }}</span>
+                  <span class="file-size">({{ getFileSize(documents()['cv']?.size || 0) }})</span>
+                </div>
+                <button type="button" class="remove-file-btn" (click)="removeDocument('cv')">
+                  <i class="delete-icon"></i>
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="save-actions">
+          @if (canCompleteStage()) {
+            <button 
+              type="button" 
+              class="save-btn primary complete"
+              [disabled]="isSaving()"
+              (click)="completeStage()"
+            >
+              @if (isSaving()) {
+                <span class="spinner"></span>
+                Finalisation en cours...
+              } @else {
+                Compléter le Dossier de Stage
+              }
+            </button>
+          } @else if (canCreateStage()) {
+            <button 
+              type="button" 
+              class="save-btn primary create"
+              [disabled]="isSaving()"
+              (click)="createStage()"
+            >
+              @if (isSaving()) {
+                <span class="spinner"></span>
+                Création en cours...
+              } @else {
+                Créer le Stage
+              }
+            </button>
+          } @else {
+            <button 
+              type="button" 
+              class="save-btn primary disabled"
+              disabled
+            >
+              Documents requis manquants
+            </button>
+          }
+          
+          <button type="button" class="cancel-btn" (click)="resetExtractedData()">
+            Annuler
+          </button>
+        </div>
+
+        @if (extractedData() && !isSaving()) {
+          <div class="validation-message">
+            <p><strong>État du dossier :</strong></p>
+            <ul>
+              @if (!extractedData()?.nom || !extractedData()?.prenom || !extractedData()?.cin) {
+                <li class="missing">✗ Informations CIN complètes</li>
+              } @else {
+                <li class="completed">✓ Informations CIN complètes</li>
+              }
+              @if (!documents()['cv']) {
+                <li class="missing">✗ CV du stagiaire</li>
+              } @else {
+                <li class="completed">✓ CV du stagiaire</li>
+              }
+              @if (!documents()['convention']) {
+                <li class="missing">✗ Convention de stage</li>
+              } @else {
+                <li class="completed">✓ Convention de stage</li>
+              }
+              @if (!documents()['assurance']) {
+                <li class="missing">✗ Attestation d'assurance</li>
+              } @else {
+                <li class="completed">✓ Attestation d'assurance</li>
+              }
+              @if (!documents()['lettre_motivation']) {
+                <li class="optional-missing">◯ Lettre de motivation (optionnel)</li>
+              } @else {
+                <li class="optional-completed">✓ Lettre de motivation (optionnel)</li>
+              }
+            </ul>
+            
+            @if (canCompleteStage()) {
+              <div class="stage-status complete">
+                <p><strong>🎉 Prêt pour finalisation :</strong> Tous les documents obligatoires sont présents. Vous pouvez compléter le dossier de stage.</p>
+              </div>
+            } @else if (canCreateStage()) {
+              <div class="stage-status create">
+                <p><strong>⚡ Prêt pour création :</strong> Documents minimum requis présents. Vous pouvez créer le stage et ajouter les autres documents plus tard.</p>
+              </div>
+            } @else {
+              <div class="stage-status incomplete">
+                <p><strong>📋 Documents manquants :</strong> Le CIN et le CV sont requis pour créer un stage.</p>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Required Documents that can be added later -->
+        <div class="optional-documents-section">
+          <h3>Documents Complémentaires <span class="later">(Requis - peuvent être ajoutés plus tard)</span></h3>
+          <p class="form-note">Ces documents sont obligatoires mais peuvent être téléchargés maintenant ou ajoutés ultérieurement au dossier du stagiaire :</p>
+          
+          <div class="documents-grid later">
+            <!-- Convention -->
+            <div class="document-upload-section">
+              <h4>Convention <span class="required-later">(Requis plus tard)</span></h4>
+              <div class="mini-upload-area" 
+                   (dragover)="onDocumentDragOver($event, 'convention')" 
+                   (dragleave)="onDocumentDragLeave($event, 'convention')" 
+                   (drop)="onDocumentDropped($event, 'convention')"
+                   [class.dragover]="documentDragStates()['convention']">
+                <input 
+                  type="file" 
+                  #conventionInput
+                  accept=".pdf,.doc,.docx" 
+                  (change)="onDocumentSelected($event, 'convention')"
+                  style="display: none"
+                >
+                
+                @if (!documents()['convention']) {
+                  <div class="mini-upload-placeholder">
+                    <i class="mini-upload-icon">📄</i>
+                    <p>Convention de stage</p>
+                    <button type="button" class="mini-upload-btn" (click)="conventionInput.click()">
+                      Télécharger
+                    </button>
+                    <small>PDF, DOC, DOCX</small>
+                  </div>
+                } @else {
+                  <div class="mini-file-preview">
+                    <span class="mini-file-name">{{ documents()['convention']?.name }}</span>
+                    <button type="button" class="mini-remove-btn" (click)="removeDocument('convention')">×</button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Assurance -->
+            <div class="document-upload-section">
+              <h4>Assurance <span class="required-later">(Requis plus tard)</span></h4>
+              <div class="mini-upload-area" 
+                   (dragover)="onDocumentDragOver($event, 'assurance')" 
+                   (dragleave)="onDocumentDragLeave($event, 'assurance')" 
+                   (drop)="onDocumentDropped($event, 'assurance')"
+                   [class.dragover]="documentDragStates()['assurance']">
+                <input 
+                  type="file" 
+                  #assuranceInput
+                  accept=".pdf,.doc,.docx" 
+                  (change)="onDocumentSelected($event, 'assurance')"
+                  style="display: none"
+                >
+                
+                @if (!documents()['assurance']) {
+                  <div class="mini-upload-placeholder">
+                    <i class="mini-upload-icon">🛡️</i>
+                    <p>Attestation d'assurance</p>
+                    <button type="button" class="mini-upload-btn" (click)="assuranceInput.click()">
+                      Télécharger
+                    </button>
+                    <small>PDF, DOC, DOCX</small>
+                  </div>
+                } @else {
+                  <div class="mini-file-preview">
+                    <span class="mini-file-name">{{ documents()['assurance']?.name }}</span>
+                    <button type="button" class="mini-remove-btn" (click)="removeDocument('assurance')">×</button>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Lettre de motivation (truly optional) -->
+            <div class="document-upload-section">
+              <h4>Lettre de motivation <span class="optional">(Optionnel)</span></h4>
+              <div class="mini-upload-area" 
+                   (dragover)="onDocumentDragOver($event, 'lettre_motivation')" 
+                   (dragleave)="onDocumentDragLeave($event, 'lettre_motivation')" 
+                   (drop)="onDocumentDropped($event, 'lettre_motivation')"
+                   [class.dragover]="documentDragStates()['lettre_motivation']">
+                <input 
+                  type="file" 
+                  #lettreInput
+                  accept=".pdf,.doc,.docx" 
+                  (change)="onDocumentSelected($event, 'lettre_motivation')"
+                  style="display: none"
+                >
+                
+                @if (!documents()['lettre_motivation']) {
+                  <div class="mini-upload-placeholder">
+                    <i class="mini-upload-icon">✉️</i>
+                    <p>Lettre de motivation</p>
+                    <button type="button" class="mini-upload-btn" (click)="lettreInput.click()">
+                      Télécharger
+                    </button>
+                    <small>PDF, DOC, DOCX</small>
+                  </div>
+                } @else {
+                  <div class="mini-file-preview">
+                    <span class="mini-file-name">{{ documents()['lettre_motivation']?.name }}</span>
+                    <button type="button" class="mini-remove-btn" (click)="removeDocument('lettre_motivation')">×</button>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

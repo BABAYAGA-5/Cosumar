@@ -30,13 +30,19 @@ class Sujet(models.Model):
 
 class Stage(models.Model):
     id = models.AutoField(primary_key=True)
-    stagiaire = models.ForeignKey(Stagiaire, on_delete=models.CASCADE, related_name='candidatures')
+    stagiaire = models.ForeignKey(
+        Stagiaire, 
+        on_delete=models.CASCADE, 
+        related_name='stages', 
+        to_field='matricule',
+        db_column='stagiaire_id'
+    )
     nature = models.CharField(max_length=50, choices=[
         ('stage', 'Stage'),
         ('pfe', 'PFE'),
         ('alternance', 'Alternance'),
-    ])
-    sujet = models.ForeignKey(Sujet, on_delete=models.CASCADE, related_name='candidatures')
+    ], default='stage')
+    sujet = models.ForeignKey(Sujet, on_delete=models.CASCADE, related_name='stages', null=True, blank=True)
     date_debut = models.DateField(null=True, blank=True)
     date_fin = models.DateField(null=True, blank=True)
     prolongation = models.BooleanField(default=False)
@@ -60,15 +66,20 @@ class Stage(models.Model):
     assurance = models.BinaryField(null=True, blank=True)
     lettre_motivation = models.BinaryField(null=True, blank=True)
     cv = models.BinaryField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True)
 
     def check_documents_and_expire(self):
         if self.statut == 'accepte':
-            if not self.cv or not self.cin or not self.convention or not self.assurance:
+            if not self.cv or not self.stagiaire.cin or not self.convention or not self.assurance:
                 self.statut = 'expire'
                 self.save()
 
     def __str__(self):
-        return f"Candidature de {self.candidat.prenom} {self.candidat.nom} pour le sujet de {self.sujet.titre}"
+        return f"Stage de {self.stagiaire.prenom} {self.stagiaire.nom} ({self.nature})"
 
 
 class Logs(models.Model):

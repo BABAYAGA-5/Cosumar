@@ -174,3 +174,35 @@ WHERE id = 1;
 
 INSERT INTO resume_service_sujet (titre, description)
 VALUES ('Développement Web Django', 'Sujet pour un projet de développement d''une application web avec Django.');
+
+INSERT INTO auth_service_utilisateur
+(prenom, nom, email, mot_de_passe, is_active, role, date_creation)
+VALUES
+('Othmane', 'Zrioual', 'othmane2rabat@gmail.com',
+ 'ec4fe878fbfbbd1108a7c2ae86c1cb07fcfc0e909dbe634e66be41e82eba0658',
+ TRUE,
+ 'admin',
+ NOW());
+
+ INSERT INTO resume_service_stagiaire
+(matricule, prenom, nom, email, num_tel, date_naissance, cin, date_creation, deleted)
+SELECT 
+    -- Moroccan-style CIN ID
+    (ARRAY['K','LA','X','C','AB','H','Z','M','T','F'])[(random()*9+1)::int] 
+    || (100000 + (random()*899999)::int)::text AS matricule,
+    -- Random prenom
+    (ARRAY['Othmane','Sara','Youssef','Aya','Mehdi','Imane','Khalid','Hajar','Walid','Nadia',
+           'Amine','Fatima','Adil','Salma','Rachid','Meryem','Samir','Nawal','Idriss','Houda'])[(random()*19+1)::int],
+    -- Random nom
+    (ARRAY['Zrioualo','El Amrani','Benjelloun','El Idrissi','Kabbaj','Bennani','Alaoui','Toumi','Chafik','Lamrabet',
+           'Rahal','Mernissi','Tazi','El Ghazali','Boutaleb','Haddad','El Yazidi','Chakir','Hassani','Berrada'])[(random()*19+1)::int],
+    -- Unique email
+    'stagiaire' || i || '@example.com',
+    -- Phone
+    '0600000' || lpad(i::text, 3, '0'),
+    -- Birth date
+    DATE '1990-01-01' + (i || ' days')::interval,
+    NULL,   -- CIN image
+    NOW(),
+    FALSE
+FROM generate_series(1,100) s(i);
