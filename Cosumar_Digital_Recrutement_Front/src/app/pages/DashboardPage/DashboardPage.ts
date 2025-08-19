@@ -1,14 +1,14 @@
 import { Component, EventEmitter, Output, HostListener, OnInit, OnDestroy, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterOutlet, RouterLink, NavigationEnd } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { signal } from '@angular/core';
+import { filter } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { CreationStageComponent } from '../CreationStage/CreationStage';
 
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CreationStageComponent],
+  imports: [RouterOutlet, RouterLink],
   templateUrl: './DashboardPage.html',
   styleUrl: './DashboardPage.css'
 })
@@ -16,25 +16,16 @@ export class DashboardPage implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   
   // User information
-  userName = signal('Ahmed Benali');
-  userRole = signal('Responsable RH');
-  userEmail = signal('ahmed.benali@cosumar.ma');
-  
+  userName = signal((localStorage.getItem('prenom') || '') + ' ' + (localStorage.getItem('nom') || '') || 'Utilisateur');
+  userRole = signal(localStorage.getItem('role') || 'Utilisateur');
+  userEmail = signal(localStorage.getItem('email') || 'Utilisateur');
+
   // UI state
   activeMenuItem = signal('dashboard');
   isUserMenuOpen = signal(false);
   isSidebarCollapsed = signal(true);
   notificationCount = signal(5);
   isMobile = false;
-  
-  // Dashboard data - now dynamic
-  totalPostes = signal('--');
-  totalCandidatures = signal('--');
-  totalUtilisateurs = signal('--');
-  pendingCandidatures = signal('--');
-  
-  // Loading state
-  isLoading = signal(true);
   
   @Output() logoutRequest = new EventEmitter<void>();
   @Output() profileView = new EventEmitter<void>();
@@ -44,11 +35,36 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.isMobile = window.innerWidth < 768;
-    this.loadDashboardStats();
+    // Set active menu item based on current route
+    this.updateActiveMenuFromRoute();
+    
+    // Listen to route changes
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.updateActiveMenuFromRoute();
+    });
   }
 
   ngOnDestroy(): void {
     // Component cleanup
+  }
+
+  private updateActiveMenuFromRoute(): void {
+    const currentRoute = this.router.url;
+    if (currentRoute.includes('creation-stage')) {
+      this.activeMenuItem.set('creation_stage');
+    } else if (currentRoute.includes('stages')) {
+      this.activeMenuItem.set('stages');
+    } else if (currentRoute.includes('candidats')) {
+      this.activeMenuItem.set('candidats');
+    } else if (currentRoute.includes('utilisateurs')) {
+      this.activeMenuItem.set('utilisateurs');
+    } else if (currentRoute.includes('domaines')) {
+      this.activeMenuItem.set('domaines');
+    } else {
+      this.activeMenuItem.set('dashboard');
+    }
   }
 
   private getAuthHeaders(): HttpHeaders {
@@ -56,31 +72,6 @@ export class DashboardPage implements OnInit, OnDestroy {
     return new HttpHeaders({
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
-    });
-  }
-
-  loadDashboardStats(): void {
-    this.isLoading.set(true);
-    
-    this.http.get<any>(`${environment.apiUrl}dashboard/stats/`, {
-      headers: this.getAuthHeaders()
-    }).subscribe({
-      next: (data) => {
-        this.totalPostes.set(data.active_postes.toString());
-        this.totalCandidatures.set(data.total_candidatures.toString());
-        this.totalUtilisateurs.set(data.active_users.toString());
-        this.pendingCandidatures.set(data.pending_candidatures.toString());
-        this.isLoading.set(false);
-      },
-      error: (error) => {
-        console.error('Error loading dashboard stats:', error);
-        // Keep placeholder values on error
-        this.totalPostes.set('N/A');
-        this.totalCandidatures.set('N/A');
-        this.totalUtilisateurs.set('N/A');
-        this.pendingCandidatures.set('N/A');
-        this.isLoading.set(false);
-      }
     });
   }
 
@@ -107,7 +98,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     const titles: { [key: string]: string } = {
       'dashboard': 'Tableau de bord',
       'creation_stage': 'Création de Stage',
-      'candidatures': 'Gestion des Candidatures',
+      'stages': 'Gestion des Stages',
       'candidats': 'Gestion des Candidats',
       'utilisateurs': 'Gestion des Utilisateurs',
       'domaines': 'Gestion des Domaines'
@@ -133,8 +124,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   logout(): void {
     this.closeUserMenu();
-    localStorage.removeItem('access');
-    localStorage.removeItem('refresh');
+    localStorage.clear();
     this.router.navigate(['/login'], { replaceUrl: true });
   }
 

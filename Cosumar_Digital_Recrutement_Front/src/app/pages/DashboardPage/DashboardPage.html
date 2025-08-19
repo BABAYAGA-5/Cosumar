@@ -20,43 +20,55 @@
     
     <nav class="sidebar-nav">
       <ul class="nav-menu">
-        <li class="nav-item" [class.active]="activeMenuItem() === 'dashboard'" (click)="setActiveMenuItem('dashboard')" [attr.data-tooltip]="'Tableau de bord'">
-          <i class="icon dashboard-icon"></i>
-          @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Tableau de bord</span>
-          }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'dashboard'" [attr.data-tooltip]="'Tableau de bord'">
+          <a routerLink="/dashboardpage/dashboard" (click)="setActiveMenuItem('dashboard')">
+            <i class="icon dashboard-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Tableau de bord</span>
+            }
+          </a>
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'creation_stage'" (click)="setActiveMenuItem('creation_stage')" [attr.data-tooltip]="'Création de Stage'">
-          <i class="icon creation_stage-icon"></i>
-          @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Création de Stage</span>
-          }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'creation_stage'" [attr.data-tooltip]="'Création de Stage'">
+          <a routerLink="/dashboardpage/creationstage" (click)="setActiveMenuItem('creation_stage')">
+            <i class="icon creation_stage-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Création de Stage</span>
+            }
+          </a>
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'candidatures'" (click)="setActiveMenuItem('candidatures')" [attr.data-tooltip]="'Candidatures'">
-          <i class="icon candidatures-icon"></i>
-          @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Candidatures</span>
-          }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'stages'" [attr.data-tooltip]="'Stages'">
+          <a routerLink="/dashboardpage/stages" (click)="setActiveMenuItem('stages')">
+            <i class="icon stages-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Stages</span>
+            }
+          </a>
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'candidats'" (click)="setActiveMenuItem('candidats')" [attr.data-tooltip]="'Candidats'">
-          <i class="icon candidats-icon"></i>
-          @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Candidats</span>
-          }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'candidats'" [attr.data-tooltip]="'Candidats'">
+          <a routerLink="/dashboardpage/candidats" (click)="setActiveMenuItem('candidats')">
+            <i class="icon candidats-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Candidats</span>
+            }
+          </a>
         </li>
         @if (userRole() === 'admin') {
-          <li class="nav-item" [class.active]="activeMenuItem() === 'utilisateurs'" (click)="setActiveMenuItem('utilisateurs')" [attr.data-tooltip]="'Utilisateurs'">
-            <i class="icon utilisateurs-icon"></i>
-            @if (!isSidebarCollapsed()) {
-              <span class="sidebar-text">Utilisateurs</span>
-            }
+          <li class="nav-item" [class.active]="activeMenuItem() === 'utilisateurs'" [attr.data-tooltip]="'Utilisateurs'">
+            <a routerLink="/dashboardpage/utilisateurs" (click)="setActiveMenuItem('utilisateurs')">
+              <i class="icon utilisateurs-icon"></i>
+              @if (!isSidebarCollapsed()) {
+                <span class="sidebar-text">Utilisateurs</span>
+              }
+            </a>
           </li>
         }
-        <li class="nav-item" [class.active]="activeMenuItem() === 'domaines'" (click)="setActiveMenuItem('domaines')" [attr.data-tooltip]="'Domaines'">
-          <i class="icon domaines-icon"></i>
-          @if (!isSidebarCollapsed()) {
-            <span class="sidebar-text">Domaines</span>
-          }
+        <li class="nav-item" [class.active]="activeMenuItem() === 'domaines'" [attr.data-tooltip]="'Domaines'">
+          <a routerLink="/dashboardpage/domaines" (click)="setActiveMenuItem('domaines')">
+            <i class="icon domaines-icon"></i>
+            @if (!isSidebarCollapsed()) {
+              <span class="sidebar-text">Domaines</span>
+            }
+          </a>
         </li>
       </ul>
     </nav>
@@ -110,18 +122,6 @@
                   </button>
                 </li>
                 <li>
-                  <button (click)="editProfile()" class="dropdown-item">
-                    <i class="edit-icon"></i>
-                    <span>Edit Profile</span>
-                  </button>
-                </li>
-                <li>
-                  <button (click)="accountSettings()" class="dropdown-item">
-                    <i class="settings-icon"></i>
-                    <span>Account Settings</span>
-                  </button>
-                </li>
-                <li>
                   <hr class="dropdown-divider">
                 </li>
                 <li>
@@ -140,83 +140,8 @@
     <!-- Dashboard Content -->
     <div class="dashboard-content">
       <div class="content-area">
-        @switch (activeMenuItem()) {
-          @case ('dashboard') {
-            <div class="dashboard-home">
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-icon postes-stat"></div>
-                  <div class="stat-info">
-                    @if (isLoading()) {
-                      <h3 class="loading">...</h3>
-                    } @else {
-                      <h3>{{ totalPostes() }}</h3>
-                    }
-                    <p>Postes Actifs</p>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon candidatures-stat"></div>
-                  <div class="stat-info">
-                    @if (isLoading()) {
-                      <h3 class="loading">...</h3>
-                    } @else {
-                      <h3>{{ totalCandidatures() }}</h3>
-                    }
-                    <p>Candidatures Reçues</p>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon utilisateurs-stat"></div>
-                  <div class="stat-info">
-                    @if (isLoading()) {
-                      <h3 class="loading">...</h3>
-                    } @else {
-                      <h3>{{ totalUtilisateurs() }}</h3>
-                    }
-                    <p>Utilisateurs Actifs</p>
-                  </div>
-                </div>
-                <div class="stat-card">
-                  <div class="stat-icon candidatures-stat"></div>
-                  <div class="stat-info">
-                    @if (isLoading()) {
-                      <h3 class="loading">...</h3>
-                    } @else {
-                      <h3>{{ pendingCandidatures() }}</h3>
-                    }
-                    <p>En Attente</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="charts-section">
-                <div class="chart-card">
-                  <h3>Évolution des Candidatures</h3>
-                  <div class="chart-placeholder">
-                    <p>Graphique des candidatures par mois</p>
-                  </div>
-                </div>
-                <div class="chart-card">
-                  <h3>Répartition par Département</h3>
-                  <div class="chart-placeholder">
-                    <p>Graphique des postes par département</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          }
-          @case ('creation_stage') {
-            <app-creation-stage></app-creation-stage>
-          }
-          @default {
-            <div class="page-content">
-              <h2>{{ getPageTitle() }}</h2>
-              <p>Contenu pour {{ activeMenuItem() }} sera implémenté ici.</p>
-            </div>
-          }
-        }
+        <router-outlet></router-outlet>
       </div>
     </div>
-  </main>
+  </main> 
 </div>

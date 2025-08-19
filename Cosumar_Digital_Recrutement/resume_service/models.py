@@ -53,19 +53,22 @@ class Stage(models.Model):
             ('en_attente_depot_dossier', 'En attente de dépôt de dossier'),
             ('expire', 'Expiré'),
             ('en_attente_visite_medicale', 'En attente de visite médicale'),
-            ('en_attente_signature_de_l_encadrant', 'En attente de signature de l\'encadrant'),
-            ('en_attente_signature_du_responsable_RH', 'En attente de signature du responsable RH'),
-            ('en_attente_signature_du_stagiaire', 'En attente de signature du stagiaire'),
+            ('en_attente_des_signatures', 'En attente de signatures'),
             ('stage_en_cours', 'Stage en cours'),
             ('en_attente_depot_rapport', 'En attente de dépôt de rapport'),
+            ('en_attente_signature_du_rapport_par_l_encadrant', 'En attente de signature du rapport par l\'encadrant'),
             ('termine', 'Terminé')
         ],
         default='en_attente_depot_dossier'
     )
+    signature_encadrant = models.BinaryField(null=True, blank=True)
+    signature_responsable_RH = models.BinaryField(null=True, blank=True)
+    signature_chef_departement = models.BinaryField(null=True, blank=True)
     convention = models.BinaryField(null=True, blank=True)
     assurance = models.BinaryField(null=True, blank=True)
     lettre_motivation = models.BinaryField(null=True, blank=True)
     cv = models.BinaryField(null=True, blank=True)
+    demande_de_stage = models.BinaryField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     deleted = models.BooleanField(default=False)
@@ -90,4 +93,5 @@ class Logs(models.Model):
 
 
 class Meta:
+    demande_de_stage = models.BinaryField(null=True, blank=True)
     verbose_name = "Candidature"

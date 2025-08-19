@@ -1,1 +1,115 @@
-<p>consultation-stage works!</p>
+<div class="consultation-stage">
+  <div class="page-header">
+    <h2>Consultation des Stages</h2>
+    <p>Liste complète des stagiaires et leur statut</p>
+  </div>
+
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <div class="filters-container">
+      <div class="filter-group">
+        <label for="statusFilter">Filtrer par statut:</label>
+        <select id="statusFilter" [(ngModel)]="selectedStatus" (change)="filterByStatus()">
+          <option value="">Tous les statuts</option>
+          <option value="en_attente_depot_dossier">En attente de dépôt</option>
+          <option value="en_attente_visite_medicale">Visite médicale</option>
+          <option value="stage_en_cours">En cours</option>
+          <option value="termine">Terminé</option>
+          <option value="annule">Annulé</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="natureFilter">Filtrer par nature:</label>
+        <select id="natureFilter" [(ngModel)]="selectedNature" (change)="filterByNature()">
+          <option value="">Toutes les natures</option>
+          <option value="stage">Stage</option>
+          <option value="pfe">PFE</option>
+          <option value="alternance">Alternance</option>
+        </select>
+      </div>
+
+      <div class="search-group">
+        <input 
+          type="text" 
+          placeholder="Rechercher par nom, prénom ou matricule..." 
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          class="search-input">
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Chargement des stages...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @else if (errorMessage()) {
+    <div class="error-container">
+      <div class="error-message">
+        <h3>Erreur</h3>
+        <p>{{ errorMessage() }}</p>
+        <button (click)="loadStagiaires()" class="retry-btn">Réessayer</button>
+      </div>
+    </div>
+  }
+
+  <!-- Empty State -->
+  @else if (filteredStagiaires().length === 0 && !isLoading()) {
+    <div class="empty-container">
+      <div class="empty-message">
+        <h3>Aucun stage trouvé</h3>
+        <p>{{ searchQuery || selectedStatus || selectedNature ? 'Aucun stage ne correspond aux critères de recherche.' : 'Aucun stage n\'est actuellement enregistré dans le système.' }}</p>
+        @if (searchQuery || selectedStatus || selectedNature) {
+          <button (click)="clearFilters()" class="clear-filters-btn">Effacer les filtres</button>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Stagiaires Grid -->
+  @else {
+    <div class="results-header">
+      <p class="results-count">
+        {{ filteredStagiaires().length }} stage(s) trouvé(s)
+        @if (searchQuery || selectedStatus || selectedNature) {
+          <span class="filter-info">
+            @if (searchQuery) { pour "{{ searchQuery }}" }
+            @if (selectedStatus) { - Statut: {{ getStatusText(selectedStatus) }} }
+            @if (selectedNature) { - Nature: {{ getNatureText(selectedNature) }} }
+          </span>
+        }
+      </p>
+      
+      <div class="view-controls">
+        <button 
+          [class.active]="viewMode === 'grid'"
+          (click)="setViewMode('grid')"
+          class="view-btn grid-view-btn"
+          title="Vue grille">
+          📱
+        </button>
+        <button 
+          [class.active]="viewMode === 'list'"
+          (click)="setViewMode('list')"
+          class="view-btn list-view-btn"
+          title="Vue liste">
+          📄
+        </button>
+      </div>
+    </div>
+
+    <div class="stagiaires-container" [class.list-view]="viewMode === 'list'" [class.grid-view]="viewMode === 'grid'">
+      @for (stagiaire of filteredStagiaires(); track stagiaire.matricule) {
+        <div class="stagiaire-wrapper" (click)="onStagiaireClick(stagiaire)">
+          <StagiaireCard [stagiaire]="stagiaire"></StagiaireCard>
+        </div>
+      }
+    </div>
+  }
+</div>

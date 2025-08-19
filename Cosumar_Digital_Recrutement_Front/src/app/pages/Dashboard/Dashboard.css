@@ -1,0 +1,110 @@
+/* Dashboard content */
+.dashboard-home {
+  padding: 2rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Stat card icons */
+.stat-icon.postes-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/buildings.svg') center/60% no-repeat,
+              #2E8B57;
+}
+
+.stat-icon.candidats-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/users.svg') center/60% no-repeat,
+              #3b82f6;
+}
+
+.stat-icon.utilisateurs-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/user-settings.svg') center/60% no-repeat,
+              #10b981;
+}
+
+.stat-icon.candidatures-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/file-text.svg') center/60% no-repeat,
+              #f59e0b;
+}
+
+.stat-info h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.stat-info p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.chart-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chart-card h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.chart-placeholder {
+  height: 200px;
+  background-color: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+/* Loading animation styles */
+.loading {
+  color: #9ca3af;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

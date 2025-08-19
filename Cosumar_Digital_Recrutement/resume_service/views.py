@@ -136,9 +136,9 @@ def enregistrer_stagiaire(request):
 
         # Determine stage status based on available documents
         if assurance_file and convention_file:
-            statut_stage = 'dossier_complet'
+            statut_stage = 'en_attente_visite_medicale'
         else:
-            statut_stage = 'en_attente_documents'
+            statut_stage = 'en_attente_depot_dossier'
 
         cin_bytes = None
         if cin_file:

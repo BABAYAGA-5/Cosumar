@@ -1,0 +1,42 @@
+<div class="stagiaire-card">
+  <div class="card-header">
+    <div class="stagiaire-info">
+      <h3 class="stagiaire-name">{{ stagiaire.prenom }} {{ stagiaire.nom }}</h3>
+      <p class="stagiaire-matricule">Matricule: {{ stagiaire.matricule }}</p>
+    </div>
+    <div class="nature-badge" [style.background-color]="getNatureColor(stagiaire.nature)">
+      {{ getNatureText(stagiaire.nature) }}
+    </div>
+  </div>
+
+  <div class="card-body">
+    @if (stagiaire.sujet) {
+      <div class="sujet-section">
+        <span class="sujet-label">Sujet:</span>
+        <p class="sujet-text">{{ stagiaire.sujet }}</p>
+      </div>
+    }
+
+    @if (stagiaire.date_debut && stagiaire.date_fin) {
+      <div class="dates-section">
+        <div class="date-item">
+          <span class="date-label">Début:</span>
+          <span class="date-value">{{ stagiaire.date_debut | date:'dd/MM/yyyy' }}</span>
+        </div>
+        <div class="date-item">
+          <span class="date-label">Fin:</span>
+          <span class="date-value">{{ stagiaire.date_fin | date:'dd/MM/yyyy' }}</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="card-footer">
+    <div class="status-badge" 
+         [style.background-color]="getStatusBgColor(stagiaire.statut)"
+         [style.color]="getStatusColor(stagiaire.statut)">
+      <span class="status-dot" [style.background-color]="getStatusColor(stagiaire.statut)"></span>
+      {{ getStatusText(stagiaire.statut) }}
+    </div>
+  </div>
+</div>

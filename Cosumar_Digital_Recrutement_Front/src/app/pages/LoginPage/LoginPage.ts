@@ -3,22 +3,43 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LoginComponent } from '../../components/LoginComponent/LoginComponent';
+import { NgModel } from '@angular/forms';
 
 @Component({
   standalone: true,
   selector: 'LoginPage',
   templateUrl: './LoginPage.html',
-  styleUrls: ['./LoginPage.css'],
-  imports: [LoginComponent]
+  styleUrls: ['./LoginPage.css']
 })
 export class LoginPage {
   private http = inject(HttpClient);
   private router = inject(Router);
 
   loginMessage = '';
+  email = '';
+  mot_de_passe = '';
+
+  onLogin(): void {
+    if (this.email && this.mot_de_passe) {
+      this.handleLogin({
+        email: this.email,
+        mot_de_passe: this.mot_de_passe
+      });
+    } else {
+      alert('Please enter both username and password');
+    }
+  }
+
+  onEmailChange(event: any): void {
+    this.email = event.target.value;
+  }
+
+  onMotDePasseChange(event: any): void {
+    this.mot_de_passe = event.target.value;
+  }
 
   handleLogin(credentials: { email: string; mot_de_passe: string }) {
-    this.loginMessage = `Logging in as ${credentials.email}...`;
+    this.loginMessage = `Connexion en tant que ${credentials.email}...`;
 
     this.http.post(`${environment.apiUrl}auth/login/`, credentials).subscribe({
       next: (response: any) => {
@@ -32,11 +53,11 @@ export class LoginPage {
         localStorage.setItem('nom', response.user.nom);
 
         console.log('Login successful:', response);
-        this.router.navigate(['/dashboard'], { replaceUrl: true });
+        this.router.navigate(['/dashboardpage'], { replaceUrl: true });
         console.log('Navigation to dashboard successful');
       },
       error: () => {
-        this.loginMessage = 'Login failed. Please check your credentials.';
+        this.loginMessage = 'Login a échoué. Veuillez vérifier vos identifiants.';
       }
     });
   }

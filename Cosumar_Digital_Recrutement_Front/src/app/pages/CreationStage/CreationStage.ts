@@ -5,13 +5,13 @@ import { environment } from '../../../environments/environment';
 import { SlicePipe } from '@angular/common';
 
 @Component({
-  selector: 'app-creation-stage',
+  selector: 'CreationStage',
   standalone: true,
   imports: [SlicePipe],
   templateUrl: './CreationStage.html',
   styleUrl: './CreationStage.css'
 })
-export class CreationStageComponent implements OnInit, OnDestroy {
+export class CreationStage implements OnInit, OnDestroy {
   private http = inject(HttpClient);
 
   // File upload properties
