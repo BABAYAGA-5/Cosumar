@@ -19,11 +19,26 @@ class Stagiaire(models.Model):
 
 class Sujet(models.Model):
     id = models.AutoField(primary_key=True)
+    created_by = models.ForeignKey(
+        'auth_service.Utilisateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sujets_created"   # 👈 unique reverse accessor
+    )
+    created_at = models.DateTimeField(auto_now_add=True,blank=True,null=True)
     titre = models.CharField(max_length=100)
     description = models.TextField()
     deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        'auth_service.Utilisateur',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sujets_deleted"   # 👈 unique reverse accessor
+    )
+
 
     def __str__(self):
         return self.titre
@@ -94,4 +109,3 @@ class Logs(models.Model):
 
 class Meta:
     demande_de_stage = models.BinaryField(null=True, blank=True)
-    verbose_name = "Candidature"

@@ -1,18 +1,22 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ChangeDetectorRef } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { SlicePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'CreationStage',
   standalone: true,
-  imports: [SlicePipe],
+  imports: [SlicePipe, FormsModule],
   templateUrl: './CreationStage.html',
   styleUrl: './CreationStage.css'
 })
 export class CreationStage implements OnInit, OnDestroy {
   private http = inject(HttpClient);
+  private cdr = inject(ChangeDetectorRef);
+  private sanitizer = inject(DomSanitizer);
 
   // File upload properties
   selectedFile = signal<File | null>(null);
@@ -22,6 +26,17 @@ export class CreationStage implements OnInit, OnDestroy {
   
   // Extracted data properties
   extractedData = signal<{nom: string, prenom: string, cin: string, date_naissance: string} | null>(null);
+  cvExtractedData = signal<{email: string, phone: string} | null>(null);
+  
+  // Computed properties for CV extracted data to ensure reactivity
+  get cvEmail(): string {
+    return this.cvExtractedData()?.email || '';
+  }
+  
+  get cvPhone(): string {
+    return this.cvExtractedData()?.phone || '';
+  }
+  
   stageData = signal<{nature: string, date_debut: string, date_fin: string} | null>({
     nature: '',
     date_debut: '',
@@ -41,6 +56,18 @@ export class CreationStage implements OnInit, OnDestroy {
     lettre_motivation: null
   });
   
+  // CV preview and processing
+  cvPreviewUrl = signal<string | null>(null);
+  isCvProcessing = signal(false);
+  cvProcessingMessage = signal<{type: string, text: string} | null>(null);
+  isGeneratingPreview = signal(false);
+  
+  // Computed property for safe URL
+  get safePreviewUrl(): SafeResourceUrl | null {
+    const url = this.cvPreviewUrl();
+    return url ? this.sanitizer.bypassSecurityTrustResourceUrl(url) : null;
+  }
+  
   documentDragStates = signal<{[key: string]: boolean}>({
     convention: false,
     cv: false,
@@ -49,7 +76,7 @@ export class CreationStage implements OnInit, OnDestroy {
   });
   
   // Candidate selection
-  candidateMethod = signal<'new' | 'existing'>('new');
+  candidateMethod = signal<'new' | 'existing'>('existing');
   candidatesList = signal<any[]>([]);
   selectedCandidate = signal<any | null>(null);
   isLoadingCandidates = signal(false);
@@ -66,7 +93,7 @@ export class CreationStage implements OnInit, OnDestroy {
   private searchDebounceTimer: any = null;
   private sujetSearchDebounceTimer: any = null;
 
-  ngOnInit(): void {
+    ngOnInit(): void {
     // Component initialization
   }
 
@@ -77,6 +104,14 @@ export class CreationStage implements OnInit, OnDestroy {
     }
     if (this.sujetSearchDebounceTimer) {
       clearTimeout(this.sujetSearchDebounceTimer);
+    }
+    
+    // Clean up blob URLs to prevent memory leaks
+    if (this.cinPreviewUrl()) {
+      URL.revokeObjectURL(this.cinPreviewUrl()!);
+    }
+    if (this.cvPreviewUrl()) {
+      URL.revokeObjectURL(this.cvPreviewUrl()!);
     }
   }
 
@@ -132,6 +167,78 @@ export class CreationStage implements OnInit, OnDestroy {
     if (file) {
       const url = URL.createObjectURL(file);
       this.cinPreviewUrl.set(url);
+    }
+  }
+
+  private async generateCvPreview(file: File): Promise<void> {
+    if (!file) return;
+    
+    // Create a preview URL for viewing/downloading
+    const url = URL.createObjectURL(file);
+    this.cvPreviewUrl.set(url);
+  }
+  
+
+
+  private async processCv(file: File): Promise<void> {
+    this.isCvProcessing.set(true);
+    this.cvProcessingMessage.set(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('cv', file);
+
+      const response = await this.http.post<any>(
+        `${environment.apiUrl}resume/process_cv/`,
+        formData,
+        { 
+          headers: new HttpHeaders({
+            'Authorization': `Bearer ${localStorage.getItem('access')}`
+          })
+        }
+      ).toPromise();
+
+      if (response && response.data) {
+        this.cvExtractedData.set({
+          email: response.data.email || '',
+          phone: response.data.phone || ''
+        });
+        this.cvProcessingMessage.set({
+          type: 'success',
+          text: 'CV traité avec succès! Email et téléphone extraits.'
+        });
+        // Force change detection and input update
+        this.cdr.detectChanges();
+        this.forceInputUpdate();
+      } else {
+        // Set empty data to show the form even if no data was extracted
+        this.cvExtractedData.set({
+          email: '',
+          phone: ''
+        });
+        this.cvProcessingMessage.set({
+          type: 'success',
+          text: 'CV traité avec succès! Vous pouvez saisir les informations manuellement.'
+        });
+        // Force change detection
+        this.cdr.detectChanges();
+      }
+
+    } catch (error: any) {
+      console.error('Error processing CV:', error);
+      // Set empty data to show the form even on error
+      this.cvExtractedData.set({
+        email: '',
+        phone: ''
+      });
+      this.cvProcessingMessage.set({
+        type: 'error',
+        text: error.error?.error || 'Erreur lors du traitement du CV. Vous pouvez saisir les informations manuellement.'
+      });
+      // Force change detection
+      this.cdr.detectChanges();
+    } finally {
+      this.isCvProcessing.set(false);
     }
   }
 
@@ -210,6 +317,11 @@ export class CreationStage implements OnInit, OnDestroy {
   }
 
   updateExtractedData(field: string, event: Event): void {
+    // Prevent modification when using existing candidate
+    if (this.candidateMethod() === 'existing') {
+      return;
+    }
+    
     const target = event.target as HTMLInputElement | HTMLTextAreaElement;
     const value = target.value;
     
@@ -220,6 +332,22 @@ export class CreationStage implements OnInit, OnDestroy {
         [field]: value
       };
     });
+  }
+
+  updateCvExtractedData(field: string, event: Event): void {
+    const target = event.target as HTMLInputElement | HTMLTextAreaElement;
+    const value = target.value;
+    
+    this.cvExtractedData.update(data => {
+      if (!data) return { email: '', phone: '' };
+      return {
+        ...data,
+        [field]: value
+      };
+    });
+
+    // Trigger change detection to update button validation
+    this.cdr.detectChanges();
   }
 
   updateStageData(field: string, event: Event): void {
@@ -242,10 +370,39 @@ export class CreationStage implements OnInit, OnDestroy {
       this.removeFile();
       this.loadCandidates();
     } else {
+      // Clear any existing candidate data
       this.selectedCandidate.set(null);
       this.extractedData.set(null);
+      this.cvExtractedData.set(null);
       this.searchQuery.set('');
       this.filteredCandidates.set([]);
+      
+      // Clear CIN preview URL and uploaded file
+      const currentCinUrl = this.cinPreviewUrl();
+      if (currentCinUrl) {
+        URL.revokeObjectURL(currentCinUrl);
+        this.cinPreviewUrl.set(null);
+      }
+      this.selectedFile.set(null);
+      
+      // Clear CV preview and data
+      const currentCvUrl = this.cvPreviewUrl();
+      if (currentCvUrl) {
+        URL.revokeObjectURL(currentCvUrl);
+        this.cvPreviewUrl.set(null);
+      }
+      
+      // Clear upload messages
+      this.uploadMessage.set(null);
+      this.cvProcessingMessage.set(null);
+      
+      // Reset documents
+      this.documents.set({
+        convention: null,
+        cv: null,
+        assurance: null,
+        lettre_motivation: null
+      });
     }
   }
 
@@ -318,6 +475,108 @@ export class CreationStage implements OnInit, OnDestroy {
       cin: candidate.matricule || '',
       date_naissance: candidate.date_naissance || ''
     });
+
+    // Fetch candidate's documents from latest stage
+    this.fetchCandidateDocuments(candidate.matricule);
+  }
+
+  async fetchCandidateDocuments(matricule: string): Promise<void> {
+    try {
+      const response = await this.http.get<any>(
+        `${environment.apiUrl}resume/get_candidate_documents/${matricule}/`,
+        {
+          headers: new HttpHeaders({
+            'Authorization': `Bearer ${localStorage.getItem('access')}`
+          })
+        }
+      ).toPromise();
+
+      if (response && response.success) {
+        console.log('Fetching candidate documents:', response);
+
+        // Set CV extracted data if available
+        if (response.cv_data) {
+          this.cvExtractedData.set({
+            email: response.cv_data.email || '',
+            phone: response.cv_data.phone || ''
+          });
+        }
+
+        // Download and set up the actual files
+        const docs: any = {};
+        
+        if (response.documents.has_cv) {
+          try {
+            // Download CV file as blob
+            const cvBlob = await this.http.get(
+              `${environment.apiUrl}resume/get_document_file/${response.stage_id}/cv/`,
+              {
+                headers: new HttpHeaders({
+                  'Authorization': `Bearer ${localStorage.getItem('access')}`
+                }),
+                responseType: 'blob'
+              }
+            ).toPromise();
+
+            if (cvBlob) {
+              // Create a proper File object from the blob
+              const cvFile = new File([cvBlob], response.documents.cv_file, { type: 'application/pdf' });
+              docs['cv'] = cvFile;
+              
+              // Generate preview using the new method
+              console.log('Generating preview for fetched CV file'); // Debug log
+              await this.generateCvPreview(cvFile);
+            }
+          } catch (error) {
+            console.error('Error downloading CV file:', error);
+          }
+        }
+
+        if (response.documents.has_cin) {
+          try {
+            // Download CIN file as blob
+            const cinBlob = await this.http.get(
+              `${environment.apiUrl}resume/get_document_file/${response.stage_id}/cin/`,
+              {
+                headers: new HttpHeaders({
+                  'Authorization': `Bearer ${localStorage.getItem('access')}`
+                }),
+                responseType: 'blob'
+              }
+            ).toPromise();
+
+            if (cinBlob) {
+              // Create a proper File object from the blob
+              const cinFile = new File([cinBlob], response.documents.cin_file, { type: 'image/jpeg' });
+              this.selectedFile.set(cinFile);
+              
+              // Create URL for preview
+              const cinUrl = URL.createObjectURL(cinBlob);
+              this.cinPreviewUrl.set(cinUrl);
+            }
+          } catch (error) {
+            console.error('Error downloading CIN file:', error);
+          }
+        }
+
+        // Update documents signal
+        console.log('Updating documents signal with:', docs); // Debug log
+        this.documents.update(currentDocs => ({
+          ...currentDocs,
+          ...docs
+        }));
+        console.log('Documents signal after update:', this.documents()); // Debug log
+
+        // Trigger change detection
+        this.cdr.detectChanges();
+        
+        console.log('Successfully loaded candidate documents');
+        console.log('Current CV preview URL:', this.cvPreviewUrl()); // Debug log
+      }
+    } catch (error) {
+      console.error('Error fetching candidate documents:', error);
+      // Don't show error to user as this is not critical
+    }
   }
 
   clearCandidateSelection(): void {
@@ -325,6 +584,27 @@ export class CreationStage implements OnInit, OnDestroy {
     this.searchQuery.set('');
     this.filteredCandidates.set([]);
     this.extractedData.set(null);
+    
+    // Clear fetched documents and preview URLs
+    this.cvExtractedData.set(null);
+    this.selectedFile.set(null);
+    
+    // Clean up blob URLs to prevent memory leaks
+    if (this.cinPreviewUrl()) {
+      URL.revokeObjectURL(this.cinPreviewUrl()!);
+    }
+    if (this.cvPreviewUrl()) {
+      URL.revokeObjectURL(this.cvPreviewUrl()!);
+    }
+    
+    this.cinPreviewUrl.set(null);
+    this.cvPreviewUrl.set(null);
+    
+    // Clear CV document from documents
+    this.documents.update(docs => ({
+      ...docs,
+      cv: null
+    }));
   }
 
   onSujetSearchQueryChange(event: Event): void {
@@ -377,41 +657,85 @@ export class CreationStage implements OnInit, OnDestroy {
 
   canCreateStage(): boolean {
     const data = this.extractedData();
+    const cvData = this.cvExtractedData();
     const docs = this.documents();
     const stage = this.stageData();
     
+    // Check if candidate data is complete (CIN data)
     const hasCandidateData = !!(data?.nom && data?.prenom && data?.cin);
     
+    // Check if CV data is complete (email and phone when CV is uploaded)
+    // Allow creation even if CV data is not fully extracted yet
+    const hasCvData = docs['cv'] ? true : true;
+    
+    // Check if required files are uploaded
     const hasRequiredFiles = this.candidateMethod() === 'existing' ? 
       docs['cv'] : 
       (docs['cv'] && this.selectedFile());
     
+    // Check if stage data is complete (including sujet)
+    const hasStageData = !!(stage?.nature && stage?.date_debut && stage?.date_fin && this.selectedSujet());
+    
     return !!(
       hasCandidateData &&
+      hasCvData &&
       hasRequiredFiles &&
-      stage?.nature &&
-      stage?.date_debut &&
-      stage?.date_fin
+      hasStageData
     );
   }
 
   canCompleteStage(): boolean {
     const data = this.extractedData();
+    const cvData = this.cvExtractedData();
     const docs = this.documents();
     const stage = this.stageData();
     
+    // Check if candidate data is complete (CIN data)
     const hasCandidateData = !!(data?.nom && data?.prenom && data?.cin);
     
+    // Check if CV data is complete (email and phone when CV is uploaded)
+    // Allow completion even if CV data is not fully extracted yet
+    const hasCvData = docs['cv'] ? true : true;
+    
+    // Check if all required files are uploaded
     const hasRequiredFiles = this.candidateMethod() === 'existing' ? 
       (docs['cv'] && docs['convention'] && docs['assurance']) :
       (docs['cv'] && docs['convention'] && docs['assurance'] && this.selectedFile());
     
+    // Check if stage data is complete (including sujet)
+    const hasStageData = !!(stage?.nature && stage?.date_debut && stage?.date_fin && this.selectedSujet());
+    
     return !!(
       hasCandidateData &&
+      hasCvData &&
       hasRequiredFiles &&
-      stage?.nature &&
-      stage?.date_debut &&
-      stage?.date_fin
+      hasStageData
+    );
+  }
+
+  shouldShowActions(): boolean {
+    // Show actions if any of these conditions are met:
+    // 1. An existing candidate is selected
+    // 2. A new candidate has been scanned (extractedData exists)
+    // 3. Any stage data has been entered
+    // 4. Any documents have been uploaded
+    
+    const hasSelectedCandidate = this.candidateMethod() === 'existing' && this.selectedCandidate();
+    const hasExtractedData = this.extractedData();
+    const hasStageData = this.stageData() && (
+      this.stageData()!.nature || 
+      this.stageData()!.date_debut || 
+      this.stageData()!.date_fin
+    );
+    const hasDocuments = Object.values(this.documents()).some(doc => doc !== null);
+    const hasSelectedSujet = this.selectedSujet();
+    
+    return !!(
+      hasSelectedCandidate || 
+      hasExtractedData || 
+      hasStageData || 
+      hasDocuments || 
+      hasSelectedSujet
     );
   }
 
@@ -429,37 +753,62 @@ export class CreationStage implements OnInit, OnDestroy {
 
     try {
       const data = this.extractedData()!;
+      const cvData = this.cvExtractedData();
       const docs = this.documents();
       const stage = this.stageData()!;
-      const formData = new FormData();
       
-      formData.append('nom', data.nom);
-      formData.append('prenom', data.prenom);
-      formData.append('cin', data.cin);
-      formData.append('date_naissance', data.date_naissance);
-      formData.append('status', 'stage_created');
-      formData.append('candidate_method', this.candidateMethod());
+      let matricule: string;
       
-      formData.append('nature', stage.nature);
-      formData.append('date_debut', stage.date_debut);
-      formData.append('date_fin', stage.date_fin);
+      if (this.candidateMethod() === 'new') {
+        // Step 1: Create the new stagiaire first
+        const stagiaireFormData = new FormData();
+        stagiaireFormData.append('nom', data.nom);
+        stagiaireFormData.append('prenom', data.prenom);
+        stagiaireFormData.append('cin', data.cin);
+        stagiaireFormData.append('date_naissance', data.date_naissance);
+        stagiaireFormData.append('email', cvData?.email || '');
+        stagiaireFormData.append('phone', cvData?.phone || '');
+        
+        if (this.selectedFile()) {
+          stagiaireFormData.append('cin_file', this.selectedFile()!);
+        }
+
+        const stagiaireResponse = await this.http.post<any>(
+          `${environment.apiUrl}resume/enregistrer_stagiaire/`,
+          stagiaireFormData,
+          { 
+            headers: new HttpHeaders({
+              'Authorization': `Bearer ${localStorage.getItem('access')}`
+            })
+          }
+        ).toPromise();
+        
+        matricule = stagiaireResponse.matricule;
+      } else {
+        // For existing stagiaire, use the selected candidate's matricule
+        const selectedCandidate = this.selectedCandidate()!;
+        matricule = selectedCandidate.matricule;
+      }
+      
+      // Step 2: Create the stage for the stagiaire (both new and existing)
+      const stageFormData = new FormData();
+      stageFormData.append('matricule', matricule);
+      stageFormData.append('nature', stage.nature);
+      stageFormData.append('date_debut', stage.date_debut);
+      stageFormData.append('date_fin', stage.date_fin);
       
       if (this.selectedSujet()) {
-        formData.append('sujet_id', this.selectedSujet()!.id.toString());
-      }
-      
-      if (this.candidateMethod() === 'new' && this.selectedFile()) {
-        formData.append('cin_file', this.selectedFile()!);
+        stageFormData.append('sujet_id', this.selectedSujet()!.id.toString());
       }
 
-      if (docs['cv']) formData.append('cv_file', docs['cv']);
-      if (docs['convention']) formData.append('convention_file', docs['convention']);
-      if (docs['assurance']) formData.append('assurance_file', docs['assurance']);
-      if (docs['lettre_motivation']) formData.append('lettre_motivation_file', docs['lettre_motivation']);
+      if (docs['cv']) stageFormData.append('cv_file', docs['cv']);
+      if (docs['convention']) stageFormData.append('convention_file', docs['convention']);
+      if (docs['assurance']) stageFormData.append('assurance_file', docs['assurance']);
+      if (docs['lettre_motivation']) stageFormData.append('lettre_motivation_file', docs['lettre_motivation']);
 
-      const response = await this.http.post<any>(
-        `${environment.apiUrl}resume/enregistrer_stagiaire/`,
-        formData,
+      const stageResponse = await this.http.post<any>(
+        `${environment.apiUrl}resume/creer_stage/`,
+        stageFormData,
         { 
           headers: new HttpHeaders({
             'Authorization': `Bearer ${localStorage.getItem('access')}`
@@ -469,7 +818,9 @@ export class CreationStage implements OnInit, OnDestroy {
 
       this.saveMessage.set({
         type: 'success',
-        text: 'Stage créé avec succès! Vous pouvez maintenant ajouter les documents manquants (Convention et Assurance) pour compléter le dossier.'
+        text: this.candidateMethod() === 'new' ? 
+          'Nouveau stagiaire créé et stage créé avec succès! Vous pouvez maintenant ajouter les documents manquants pour compléter le dossier.' :
+          'Stage créé avec succès! Vous pouvez maintenant ajouter les documents manquants pour compléter le dossier.'
       });
 
     } catch (error: any) {
@@ -497,37 +848,73 @@ export class CreationStage implements OnInit, OnDestroy {
 
     try {
       const data = this.extractedData()!;
+      const cvData = this.cvExtractedData();
       const docs = this.documents();
       const stage = this.stageData()!;
-      const formData = new FormData();
       
-      formData.append('nom', data.nom);
-      formData.append('prenom', data.prenom);
-      formData.append('cin', data.cin);
-      formData.append('date_naissance', data.date_naissance);
-      formData.append('status', 'dossier_complete');
-      formData.append('candidate_method', this.candidateMethod());
+      let matricule: string;
       
-      formData.append('nature', stage.nature);
-      formData.append('date_debut', stage.date_debut);
-      formData.append('date_fin', stage.date_fin);
+      if (this.candidateMethod() === 'new') {
+        // Step 1: Create the new stagiaire first (if not already created)
+        const stagiaireFormData = new FormData();
+        stagiaireFormData.append('nom', data.nom);
+        stagiaireFormData.append('prenom', data.prenom);
+        stagiaireFormData.append('cin', data.cin);
+        stagiaireFormData.append('date_naissance', data.date_naissance);
+        stagiaireFormData.append('email', cvData?.email || '');
+        stagiaireFormData.append('phone', cvData?.phone || '');
+        
+        if (this.selectedFile()) {
+          stagiaireFormData.append('cin_file', this.selectedFile()!);
+        }
+
+        // Try to create stagiaire (might already exist if createStage was called first)
+        try {
+          const stagiaireResponse = await this.http.post<any>(
+            `${environment.apiUrl}resume/enregistrer_stagiaire/`,
+            stagiaireFormData,
+            { 
+              headers: new HttpHeaders({
+                'Authorization': `Bearer ${localStorage.getItem('access')}`
+              })
+            }
+          ).toPromise();
+          
+          matricule = stagiaireResponse.matricule;
+        } catch (error: any) {
+          // If stagiaire already exists, use the CIN as matricule
+          if (error.error?.error?.includes('existe déjà')) {
+            matricule = data.cin;
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        // For existing stagiaire, use the selected candidate's matricule
+        const selectedCandidate = this.selectedCandidate()!;
+        matricule = selectedCandidate.matricule;
+      }
+      
+      // Step 2: Create the complete stage
+      const stageFormData = new FormData();
+      stageFormData.append('matricule', matricule);
+      stageFormData.append('nature', stage.nature);
+      stageFormData.append('date_debut', stage.date_debut);
+      stageFormData.append('date_fin', stage.date_fin);
+      stageFormData.append('status', 'dossier_complete');
       
       if (this.selectedSujet()) {
-        formData.append('sujet_id', this.selectedSujet()!.id.toString());
-      }
-      
-      if (this.candidateMethod() === 'new' && this.selectedFile()) {
-        formData.append('cin_file', this.selectedFile()!);
+        stageFormData.append('sujet_id', this.selectedSujet()!.id.toString());
       }
 
-      if (docs['cv']) formData.append('cv_file', docs['cv']);
-      if (docs['convention']) formData.append('convention_file', docs['convention']);
-      if (docs['assurance']) formData.append('assurance_file', docs['assurance']);
-      if (docs['lettre_motivation']) formData.append('lettre_motivation_file', docs['lettre_motivation']);
+      if (docs['cv']) stageFormData.append('cv_file', docs['cv']);
+      if (docs['convention']) stageFormData.append('convention_file', docs['convention']);
+      if (docs['assurance']) stageFormData.append('assurance_file', docs['assurance']);
+      if (docs['lettre_motivation']) stageFormData.append('lettre_motivation_file', docs['lettre_motivation']);
 
-      const response = await this.http.post<any>(
-        `${environment.apiUrl}resume/enregistrer_stagiaire/`,
-        formData,
+      const stageResponse = await this.http.post<any>(
+        `${environment.apiUrl}resume/creer_stage/`,
+        stageFormData,
         { 
           headers: new HttpHeaders({
             'Authorization': `Bearer ${localStorage.getItem('access')}`
@@ -556,7 +943,7 @@ export class CreationStage implements OnInit, OnDestroy {
   }
 
   // Document handling methods
-  onDocumentSelected(event: Event, documentType: string): void {
+  async onDocumentSelected(event: Event, documentType: string): Promise<void> {
     const target = event.target as HTMLInputElement;
     const files = target.files;
     if (files && files.length > 0) {
@@ -566,6 +953,12 @@ export class CreationStage implements OnInit, OnDestroy {
           ...docs,
           [documentType]: file
         }));
+        
+        // Handle CV specific processing
+        if (documentType === 'cv') {
+          await this.generateCvPreview(file);
+          this.processCv(file);
+        }
       }
     }
   }
@@ -586,7 +979,7 @@ export class CreationStage implements OnInit, OnDestroy {
     }));
   }
 
-  onDocumentDropped(event: DragEvent, documentType: string): void {
+  async onDocumentDropped(event: DragEvent, documentType: string): Promise<void> {
     event.preventDefault();
     this.documentDragStates.update(states => ({
       ...states,
@@ -596,11 +989,22 @@ export class CreationStage implements OnInit, OnDestroy {
     const files = event.dataTransfer?.files;
     if (files && files.length > 0) {
       const file = files[0];
+      console.log('Dropped file:', file.name, file.type); // Debug log
       if (this.isValidDocumentType(file)) {
+        console.log('Dropped file is valid, updating documents'); // Debug log
         this.documents.update(docs => ({
           ...docs,
           [documentType]: file
         }));
+        
+        // Handle CV specific processing
+        if (documentType === 'cv') {
+          console.log('Processing dropped CV file'); // Debug log
+          await this.generateCvPreview(file);
+          this.processCv(file);
+        }
+      } else {
+        console.log('Dropped file type not valid:', file.type); // Debug log
       }
     }
   }
@@ -615,6 +1019,18 @@ export class CreationStage implements OnInit, OnDestroy {
   }
 
   removeDocument(documentType: string): void {
+    // Clean up CV preview URL if removing CV
+    if (documentType === 'cv') {
+      const currentCvUrl = this.cvPreviewUrl();
+      if (currentCvUrl) {
+        URL.revokeObjectURL(currentCvUrl);
+        this.cvPreviewUrl.set(null);
+      }
+      
+      this.cvProcessingMessage.set(null);
+      this.cvExtractedData.set(null);
+    }
+    
     this.documents.update(docs => ({
       ...docs,
       [documentType]: null
@@ -624,6 +1040,36 @@ export class CreationStage implements OnInit, OnDestroy {
   resetExtractedData(): void {
     this.extractedData.set(null);
     this.saveMessage.set(null);
+  }
+
+  // Temporary test method for debugging CV data
+  testCvData(): void {
+    this.cvExtractedData.set({
+      email: 'test@example.com',
+      phone: '+212 6 12 34 56 78'
+    });
+    this.cvProcessingMessage.set({
+      type: 'success',
+      text: 'Données de test ajoutées!'
+    });
+    // Force change detection and input update
+    this.cdr.detectChanges();
+    this.forceInputUpdate();
+  }
+
+  // Method to force input field updates
+  private forceInputUpdate(): void {
+    setTimeout(() => {
+      const emailInput = document.getElementById('extracted-email') as HTMLInputElement;
+      const phoneInput = document.getElementById('extracted-phone') as HTMLInputElement;
+      
+      if (emailInput && this.cvExtractedData()?.email) {
+        emailInput.value = this.cvExtractedData()!.email;
+      }
+      if (phoneInput && this.cvExtractedData()?.phone) {
+        phoneInput.value = this.cvExtractedData()!.phone;
+      }
+    }, 100);
   }
 
   resetForm(): void {
@@ -642,9 +1088,16 @@ export class CreationStage implements OnInit, OnDestroy {
       this.cinPreviewUrl.set(null);
     }
     
+    const currentCvUrl = this.cvPreviewUrl();
+    if (currentCvUrl) {
+      URL.revokeObjectURL(currentCvUrl);
+      this.cvPreviewUrl.set(null);
+    }
+    
     this.selectedFile.set(null);
     this.uploadMessage.set(null);
     this.extractedData.set(null);
+    this.cvExtractedData.set(null);
     this.saveMessage.set(null);
     this.selectedCandidate.set(null);
     this.candidateMethod.set('new');
@@ -653,6 +1106,7 @@ export class CreationStage implements OnInit, OnDestroy {
     this.selectedSujet.set(null);
     this.sujetSearchQuery.set('');
     this.filteredSujets.set([]);
+    this.cvProcessingMessage.set(null);
     
     this.stageData.set({
       nature: '',

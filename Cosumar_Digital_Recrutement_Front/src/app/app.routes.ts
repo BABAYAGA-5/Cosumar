@@ -4,6 +4,7 @@ import { DashboardPage } from './pages/DashboardPage/DashboardPage';
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import { CreationStage } from './pages/CreationStage/CreationStage';
 import { ConsultationStage } from './pages/ConsultationStage/ConsultationStage';
+import { StageDetails } from './pages/StageDetails/StageDetails';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -14,6 +15,7 @@ export const routes: Routes = [
       { path: 'dashboard', component: Dashboard },
       { path: 'creationstage', component: CreationStage },
       { path: 'stages', component: ConsultationStage },
+      { path: 'stage/:id', component: StageDetails },
       //{ path: 'utilisateurs', component: Utilisateurs },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

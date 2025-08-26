@@ -50,17 +50,22 @@ export class ConsultationStage implements OnInit {
     }).subscribe({
       next: (response) => {
         // Transform Django model data to match StagiaireData interface
-        const stagiaireData = response.stages?.map((stage: any) => ({
-          matricule: stage.stagiaire?.matricule || stage.stagiaire_id,
-          nom: stage.stagiaire?.nom || '',
-          prenom: stage.stagiaire?.prenom || '',
+        // Handle both array response and object with stages property
+        const stages = Array.isArray(response) ? response : (response.stages || []);
+        
+        const stagiaireData = stages.map((stage: any) => ({
+          stageId: stage.id,  // Add stage ID for navigation
+          matricule: stage.stagiaire?.matricule || stage.stagiaire_id || stage.id?.toString() || '',
+          nom: stage.stagiaire?.nom || stage.stagiaire__nom || '',
+          prenom: stage.stagiaire?.prenom || stage.stagiaire__prenom || '',
           statut: stage.statut,
-          sujet: stage.sujet?.titre || 'Non défini',
+          sujet: stage.sujet?.titre || stage.sujet__titre || 'Non défini',
           nature: stage.nature,
           date_debut: stage.date_debut,
           date_fin: stage.date_fin
-        })) || [];
+        }));
 
+        console.log('Transformed stagiaire data:', stagiaireData);
         this.stagiaires.set(stagiaireData);
         this.filteredStagiaires.set(stagiaireData);
         this.isLoading.set(false);
@@ -124,21 +129,22 @@ export class ConsultationStage implements OnInit {
   }
 
   onStagiaireClick(stagiaire: StagiaireData): void {
-    // Navigate to stagiaire details page
-    this.router.navigate(['/dashboardpage/stages', stagiaire.matricule]);
+    // Navigate to stage details page using stage ID
+    console.log('Navigating to stage details for stage ID:', stagiaire.stageId);
+    console.log('Stage data:', stagiaire);
+    this.router.navigate(['/dashboardpage/stage', stagiaire.stageId]);
   }
 
   getStatusText(statut: string): string {
     const statusTexts: { [key: string]: string } = {
       'annule': 'Annulé',
-      'en_attente_depot_dossier': 'En attente de dépôt',
+      'en_attente_depot_dossier': 'En attente de dépôt de dossier',
       'expire': 'Expiré',
-      'en_attente_visite_medicale': 'Visite médicale',
-      'en_attente_signature_de_l_encadrant': 'Signature encadrant',
-      'en_attente_signature_du_responsable_RH': 'Signature RH',
-      'en_attente_signature_du_stagiaire': 'Signature stagiaire',
-      'stage_en_cours': 'En cours',
-      'en_attente_depot_rapport': 'Dépôt rapport',
+      'en_attente_visite_medicale': 'En attente de visite médicale',
+      'en_attente_des_signatures': 'En attente de signatures',
+      'stage_en_cours': 'Stage en cours',
+      'en_attente_depot_rapport': 'En attente de dépôt de rapport',
+      'en_attente_signature_du_rapport_par_l_encadrant': 'En attente de signature du rapport par l\'encadrant',
       'termine': 'Terminé'
     };
     return statusTexts[statut] || statut;

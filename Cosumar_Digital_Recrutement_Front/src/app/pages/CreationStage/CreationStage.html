@@ -11,21 +11,21 @@
             <input 
               type="radio" 
               name="candidateMethod" 
-              value="new" 
-              [checked]="candidateMethod() === 'new'"
-              (change)="setCandidateMethod('new')"
-            >
-            <span class="radio-label">Nouveau candidat (Scanner CIN)</span>
-          </label>
-          <label class="radio-option">
-            <input 
-              type="radio" 
-              name="candidateMethod" 
               value="existing" 
               [checked]="candidateMethod() === 'existing'"
               (change)="setCandidateMethod('existing')"
             >
             <span class="radio-label">Stagiaire existant</span>
+          </label>
+          <label class="radio-option">
+            <input 
+              type="radio" 
+              name="candidateMethod" 
+              value="new" 
+              [checked]="candidateMethod() === 'new'"
+              (change)="setCandidateMethod('new')"
+            >
+            <span class="radio-label">Nouveau candidat (Scanner CIN)</span>
           </label>
         </div>
       </div>
@@ -71,7 +71,7 @@
               </div>
             }
             
-            @if (searchQuery() && filteredCandidates().length === 0 && !isLoadingCandidates()) {
+            @if (searchQuery() && filteredCandidates().length === 0 && !isLoadingCandidates() && !selectedCandidate()) {
               <div class="no-results">
                 <p>Aucun stagiaire trouvé pour "{{ searchQuery() }}"</p>
               </div>
@@ -139,12 +139,16 @@
               </div>
             }
           </div>
-          
-          @if (selectedFile() && !isUploading()) {
-            <div class="cin-preview">
-              <h4>Aperçu du CIN</h4>
-              <img [src]="cinPreviewUrl()" alt="Aperçu CIN" class="cin-image">
-            </div>
+        </div>
+      }
+
+      <!-- CIN Preview (for both new and existing candidates) -->
+      @if (selectedFile() && !isUploading() && cinPreviewUrl()) {
+        <div class="cin-preview">
+          <h4>Aperçu du CIN</h4>
+          <img [src]="cinPreviewUrl()" alt="Aperçu CIN" class="cin-image">
+          @if (candidateMethod() === 'existing') {
+            <p class="info-note">CIN chargé depuis le dossier du stagiaire</p>
           }
         </div>
       }
@@ -167,38 +171,50 @@
     @if (extractedData() || selectedCandidate()) {
       <div class="extracted-data-form">
         <h3>Données extraites du CIN</h3>
-        <p class="form-note">Vérifiez et modifiez les informations si nécessaire :</p>
+        <p class="form-note">
+          @if (candidateMethod() === 'existing') {
+            Informations du stagiaire sélectionné (lecture seule) :
+          } @else {
+            Vérifiez et modifiez les informations si nécessaire :
+          }
+        </p>
         
         <div class="form-grid">
-          <div class="form-group">
+            <div class="form-group">
             <label for="nom">Nom</label>
-            <textarea 
+            <input 
+              type="text"
               id="nom" 
-              [value]="extractedData()?.nom || ''" 
+              [value]="extractedData()?.nom || selectedCandidate()?.nom || ''" 
               (input)="updateExtractedData('nom', $event)"
+              [readonly]="candidateMethod() === 'existing'"
+              [class.readonly]="candidateMethod() === 'existing'"
               placeholder="Entrez le nom"
-              rows="2"
-            ></textarea>
-          </div>
-          
-          <div class="form-group">
+            >
+            </div>
+            
+            <div class="form-group">
             <label for="prenom">Prénom</label>
-            <textarea 
+            <input 
+              type="text"
               id="prenom" 
-              [value]="extractedData()?.prenom || ''" 
+              [value]="extractedData()?.prenom || selectedCandidate()?.prenom || ''" 
               (input)="updateExtractedData('prenom', $event)"
+              [readonly]="candidateMethod() === 'existing'"
+              [class.readonly]="candidateMethod() === 'existing'"
               placeholder="Entrez le prénom"
-              rows="2"
-            ></textarea>
-          </div>
+            >
+            </div>
           
           <div class="form-group">
             <label for="cin">Numéro CIN</label>
             <input 
               type="text" 
               id="cin" 
-              [value]="extractedData()?.cin || ''" 
+              [value]="extractedData()?.cin || selectedCandidate()?.matricule || ''" 
               (input)="updateExtractedData('cin', $event)"
+              [readonly]="candidateMethod() === 'existing'"
+              [class.readonly]="candidateMethod() === 'existing'"
               placeholder="Entrez le numéro CIN"
             >
           </div>
@@ -208,8 +224,10 @@
             <input 
               type="date" 
               id="date_naissance" 
-              [value]="extractedData()?.date_naissance || ''" 
+              [value]="extractedData()?.date_naissance || selectedCandidate()?.date_naissance || ''" 
               (input)="updateExtractedData('date_naissance', $event)"
+              [readonly]="candidateMethod() === 'existing'"
+              [class.readonly]="candidateMethod() === 'existing'"
             >
           </div>
           
@@ -253,11 +271,11 @@
 
         <!-- Sujet Selection Section -->
         <div class="sujet-selection-section">
-          <h3>Sujet de Stage <span class="optional">(Optionnel)</span></h3>
+          <h3>Sujet de Stage</h3>
           <p class="form-note">Recherchez et assignez un sujet spécifique pour ce stage :</p>
           
           <div class="form-group">
-            <label for="sujet-search">Rechercher un sujet</label>
+            <label for="sujet-search">Rechercher un sujet <span class="required">*</span></label>
             <div class="search-container">
               <input 
                 type="text"
@@ -296,7 +314,7 @@
               </div>
             }
             
-            @if (sujetSearchQuery() && filteredSujets().length === 0 && !isLoadingSujets()) {
+            @if (sujetSearchQuery() && filteredSujets().length === 0 && !isLoadingSujets() && !selectedSujet()) {
               <div class="no-results">
                 <p>Aucun sujet trouvé pour "{{ sujetSearchQuery() }}"</p>
               </div>
@@ -324,7 +342,7 @@
           <h3>CV du Stagiaire <span class="required">*</span></h3>
           <p class="form-note important">Le CV est requis pour créer le stage</p>
           
-          <div class="cv-upload-area" 
+          <div class="file-upload-area" 
                (dragover)="onDocumentDragOver($event, 'cv')" 
                (dragleave)="onDocumentDragLeave($event, 'cv')" 
                (drop)="onDocumentDropped($event, 'cv')"
@@ -346,6 +364,11 @@
                 </button>
                 <small>PDF, DOC, DOCX uniquement</small>
               </div>
+            } @else if (isCvProcessing()) {
+              <div class="uploading-state">
+                <span class="spinner"></span>
+                <p>Traitement du CV en cours...</p>
+              </div>
             } @else {
               <div class="file-preview">
                 <div class="file-info">
@@ -354,56 +377,107 @@
                   <span class="file-size">({{ getFileSize(documents()['cv']?.size || 0) }})</span>
                 </div>
                 <button type="button" class="remove-file-btn" (click)="removeDocument('cv')">
-                  <i class="delete-icon"></i>
+                  <i class="delete-icon">🗑️</i>
                 </button>
               </div>
             }
           </div>
-        </div>
-
-        <div class="save-actions">
-          @if (canCompleteStage()) {
-            <button 
-              type="button" 
-              class="save-btn primary complete"
-              [disabled]="isSaving()"
-              (click)="completeStage()"
-            >
-              @if (isSaving()) {
-                <span class="spinner"></span>
-                Finalisation en cours...
-              } @else {
-                Compléter le Dossier de Stage
-              }
-            </button>
-          } @else if (canCreateStage()) {
-            <button 
-              type="button" 
-              class="save-btn primary create"
-              [disabled]="isSaving()"
-              (click)="createStage()"
-            >
-              @if (isSaving()) {
-                <span class="spinner"></span>
-                Création en cours...
-              } @else {
-                Créer le Stage
-              }
-            </button>
-          } @else {
-            <button 
-              type="button" 
-              class="save-btn primary disabled"
-              disabled
-            >
-              Documents requis manquants
-            </button>
-          }
           
-          <button type="button" class="cancel-btn" (click)="resetExtractedData()">
-            Annuler
-          </button>
+          @if (documents()['cv'] && !isCvProcessing() && cvPreviewUrl()) {
+            <div class="cv-preview-section">
+              <div class="preview-header">
+                <h4 class="preview-title">
+                  <i class="preview-icon">📄</i>
+                  Aperçu du CV
+                </h4>
+                <div class="file-info">
+                  <span class="file-name">{{ documents()['cv']?.name }}</span>
+                  <span class="file-size">({{ getFileSize(documents()['cv']?.size || 0) }})</span>
+                </div>
+              </div>
+              
+              @if (documents()['cv']?.type === 'application/pdf') {
+                <!-- PDF Preview -->
+                <div class="pdf-preview-container">
+                  <iframe 
+                    [src]="safePreviewUrl" 
+                    class="pdf-iframe">
+                    <div class="iframe-fallback">
+                      <p>Votre navigateur ne peut pas afficher ce PDF.</p>
+                      <p>Utilisez les boutons ci-dessous pour l'ouvrir ou le télécharger.</p>
+                    </div>
+                  </iframe>
+                </div>
+              } @else if (documents()['cv']?.type?.startsWith('image/')) {
+                <!-- Image Preview -->
+                <div class="image-preview-container">
+                  <img [src]="cvPreviewUrl()" 
+                       class="preview-image" 
+                       alt="Aperçu du CV">
+                </div>
+              }
+              
+              <!-- Action buttons -->
+              <div class="preview-actions">
+                <a [href]="cvPreviewUrl()" target="_blank" class="btn btn-view">
+                  <i class="btn-icon">👁️</i>
+                  Ouvrir
+                </a>
+                <a [href]="cvPreviewUrl()" [download]="documents()['cv']?.name" class="btn btn-download">
+                  <i class="btn-icon">📥</i>
+                  Télécharger
+                </a>
+              </div>
+            </div>
+          }
         </div>
+        
+        @if (!cvExtractedData() && documents()['cv'] && !isCvProcessing()) {
+          <div class="form-actions">
+            <button type="button" class="cancel-btn" (click)="removeDocument('cv')">
+              Supprimer le fichier
+            </button>
+          </div>
+        }
+
+        @if (cvProcessingMessage()) {
+          <div class="message" [class]="cvProcessingMessage()!.type">
+            <p>{{ cvProcessingMessage()!.text }}</p>
+          </div>
+        }
+
+        @if (cvExtractedData()) {
+          <div class="extracted-data-form">
+            <h3>Données extraites du CV</h3>
+            <p class="form-note">Vérifiez et modifiez les informations si nécessaire :</p>
+            
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="extracted-email">Email</label>
+                <input 
+                  type="email" 
+                  id="extracted-email"
+                  [value]="cvExtractedData()?.email || ''"
+                  (input)="updateCvExtractedData('email', $event)"
+                  placeholder="Entrez l'email"
+                  [attr.data-value]="cvExtractedData()?.email || ''"
+                >
+              </div>
+              
+              <div class="form-group">
+                <label for="extracted-phone">Téléphone</label>
+                <input 
+                  type="tel" 
+                  id="extracted-phone"
+                  [value]="cvExtractedData()?.phone || ''"
+                  (input)="updateCvExtractedData('phone', $event)"
+                  placeholder="Entrez le numéro de téléphone"
+                  [attr.data-value]="cvExtractedData()?.phone || ''"
+                >
+              </div>
+            </div>
+          </div>
+        }
 
         @if (extractedData() && !isSaving()) {
           <div class="validation-message">
@@ -418,6 +492,11 @@
                 <li class="missing">✗ CV du stagiaire</li>
               } @else {
                 <li class="completed">✓ CV du stagiaire</li>
+              }
+              @if (documents()['cv'] && (!cvExtractedData()?.email || !cvExtractedData()?.phone)) {
+                <li class="missing">✗ Informations CV complètes (email, téléphone)</li>
+              } @else if (documents()['cv']) {
+                <li class="completed">✓ Informations CV complètes (email, téléphone)</li>
               }
               @if (!documents()['convention']) {
                 <li class="missing">✗ Convention de stage</li>
@@ -446,7 +525,7 @@
               </div>
             } @else {
               <div class="stage-status incomplete">
-                <p><strong>📋 Documents manquants :</strong> Le CIN et le CV sont requis pour créer un stage.</p>
+                <p><strong>📋 Documents manquants :</strong> Le CIN, CV et leurs informations complètes sont requis pour créer un stage.</p>
               </div>
             }
           </div>
@@ -564,4 +643,70 @@
       </div>
     }
   </div>
+
+  <!-- Response Message Display -->
+  @if (saveMessage()) {
+    <div class="response-message" [class]="'message-' + saveMessage()!.type">
+      <div class="message-content">
+        <span class="message-icon">
+          @if (saveMessage()!.type === 'success') {
+            ✅
+          } @else if (saveMessage()!.type === 'error') {
+            ❌
+          } @else {
+            ℹ️
+          }
+        </span>
+        <span class="message-text">{{ saveMessage()!.text }}</span>
+      </div>
+      <button type="button" class="close-message-btn" (click)="saveMessage.set(null)">×</button>
+    </div>
+  }
+
+  <!-- Submit Actions Section - Only show when there's data to work with -->
+  @if (shouldShowActions()) {
+    <div class="save-actions">
+      @if (canCompleteStage()) {
+        <button 
+          type="button" 
+          class="save-btn primary complete"
+          [disabled]="isSaving()"
+          (click)="completeStage()"
+        >
+          @if (isSaving()) {
+            <span class="spinner"></span>
+            Finalisation en cours...
+          } @else {
+            Compléter le Dossier de Stage
+          }
+        </button>
+      } @else if (canCreateStage()) {
+        <button 
+          type="button" 
+          class="save-btn primary create"
+          [disabled]="isSaving()"
+          (click)="createStage()"
+        >
+          @if (isSaving()) {
+            <span class="spinner"></span>
+            Création en cours...
+          } @else {
+            Créer le Stage
+          }
+        </button>
+      } @else {
+        <button 
+          type="button" 
+          class="save-btn primary disabled"
+          disabled
+        >
+          Documents requis manquants
+        </button>
+      }
+      
+      <button type="button" class="cancel-btn" (click)="resetExtractedData()">
+        Annuler
+      </button>
+    </div>
+  }
 </div>

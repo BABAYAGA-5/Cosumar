@@ -52,7 +52,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   private updateActiveMenuFromRoute(): void {
     const currentRoute = this.router.url;
-    if (currentRoute.includes('creation-stage')) {
+    if (currentRoute.includes('creationstage')) {
       this.activeMenuItem.set('creation_stage');
     } else if (currentRoute.includes('stages')) {
       this.activeMenuItem.set('stages');

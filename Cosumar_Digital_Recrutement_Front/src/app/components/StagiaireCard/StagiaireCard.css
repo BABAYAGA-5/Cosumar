@@ -128,6 +128,9 @@
   padding: 1rem 1.5rem 1.5rem 1.5rem;
   background: #fafbfc;
   border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .status-badge {
@@ -139,11 +142,16 @@
   font-size: 0.875rem;
   font-weight: 600;
   border: 2px solid currentColor;
-  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 1;
   justify-content: center;
   text-align: center;
   position: relative;
   overflow: hidden;
+  word-wrap: break-word;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .status-badge::before {

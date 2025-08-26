@@ -11,10 +11,14 @@
         <label for="statusFilter">Filtrer par statut:</label>
         <select id="statusFilter" [(ngModel)]="selectedStatus" (change)="filterByStatus()">
           <option value="">Tous les statuts</option>
-          <option value="en_attente_depot_dossier">En attente de dépôt</option>
-          <option value="en_attente_visite_medicale">Visite médicale</option>
-          <option value="stage_en_cours">En cours</option>
+          <option value="en_attente_depot_dossier">En attente de dépôt de dossier</option>
+          <option value="en_attente_visite_medicale">En attente de visite médicale</option>
+          <option value="en_attente_des_signatures">En attente de signatures</option>
+          <option value="stage_en_cours">Stage en cours</option>
+          <option value="en_attente_depot_rapport">En attente de dépôt de rapport</option>
+          <option value="en_attente_signature_du_rapport_par_l_encadrant">En attente de signature du rapport par l'encadrant</option>
           <option value="termine">Terminé</option>
+          <option value="expire">Expiré</option>
           <option value="annule">Annulé</option>
         </select>
       </div>

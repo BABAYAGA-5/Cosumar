@@ -1,0 +1,475 @@
+<div class="stage-details-content">
+  <div class="page-header">
+    <button class="back-btn" (click)="goBack()">
+      <i class="icon-arrow-left"></i>
+      Retour
+    </button>
+    <div class="header-info">
+      <h2>Détails du Stage</h2>
+      @if (stageData()?.stagiaire) {
+        <p>{{ stageData()!.stagiaire.prenom }} {{ stageData()!.stagiaire.nom }} - {{ getNatureText(stageData()!.nature) }}</p>
+      }
+    </div>
+    <div class="header-actions">
+      @if (!isEditMode()) {
+        <button class="edit-btn" (click)="toggleEditMode()">
+          <i class="icon-edit"></i>
+          Modifier
+        </button>
+      } @else {
+        <button class="save-btn" (click)="saveChanges()" [disabled]="isSaving()">
+          @if (isSaving()) {
+            <span class="spinner"></span>
+          } @else {
+            <i class="icon-save"></i>
+          }
+          Enregistrer
+        </button>
+        <button class="cancel-btn" (click)="cancelEdit()">
+          <i class="icon-cancel"></i>
+          Annuler
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="spinner large"></div>
+      <p>Chargement des détails du stage...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @else if (errorMessage()) {
+    <div class="error-container">
+      <div class="error-message">
+        <h3>Erreur</h3>
+        <p>{{ errorMessage() }}</p>
+        <button (click)="goBack()" class="retry-btn">Retour à la liste</button>
+      </div>
+    </div>
+  }
+
+  <!-- Stage Details -->
+  @else if (stageData()) {
+    <div class="stage-details">
+      
+      <!-- Stagiaire Information -->
+      <div class="details-section">
+        <h3>Informations du Stagiaire</h3>
+        @if (stageData()?.stagiaire) {
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Matricule</label>
+              <div class="form-value">{{ stageData()!.stagiaire.matricule }}</div>
+            </div>
+            <div class="form-group">
+              <label>Nom</label>
+              <div class="form-value">{{ stageData()!.stagiaire.nom }}</div>
+            </div>
+            <div class="form-group">
+              <label>Prénom</label>
+              <div class="form-value">{{ stageData()!.stagiaire.prenom }}</div>
+            </div>
+            <div class="form-group">
+              <label>Email</label>
+              <div class="form-value">{{ stageData()!.stagiaire.email || 'Non renseigné' }}</div>
+            </div>
+            <div class="form-group">
+              <label>Téléphone</label>
+              <div class="form-value">{{ stageData()!.stagiaire.num_tel || 'Non renseigné' }}</div>
+            </div>
+            <div class="form-group">
+              <label>Date de naissance</label>
+              <div class="form-value">{{ stageData()!.stagiaire.date_naissance || 'Non renseignée' }}</div>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Stage Information -->
+      <div class="details-section">
+        <h3>Informations du Stage</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="nature">Nature du stage</label>
+            @if (isEditMode()) {
+              <select 
+                id="nature"
+                [value]="stageData()!.nature || ''" 
+                (change)="updateStageData('nature', $event)"
+                class="form-control"
+              >
+                <option value="stage">Stage</option>
+                <option value="pfe">PFE</option>
+                <option value="alternance">Alternance</option>
+              </select>
+            } @else {
+              <div class="form-value">{{ getNatureText(stageData()!.nature) }}</div>
+            }
+          </div>
+          
+          <div class="form-group">
+            <label for="statut">Statut</label>
+            @if (isEditMode()) {
+              <select 
+                id="statut"
+                [value]="stageData()!.statut || ''" 
+                (change)="updateStageData('statut', $event)"
+                class="form-control"
+              >
+                <option value="en_attente_depot_dossier">En attente de dépôt de dossier</option>
+                <option value="en_attente_visite_medicale">En attente de visite médicale</option>
+                <option value="en_attente_des_signatures">En attente de signatures</option>
+                <option value="stage_en_cours">Stage en cours</option>
+                <option value="en_attente_depot_rapport">En attente de dépôt de rapport</option>
+                <option value="en_attente_signature_du_rapport_par_l_encadrant">En attente de signature du rapport par l'encadrant</option>
+                <option value="termine">Terminé</option>
+                <option value="expire">Expiré</option>
+                <option value="annule">Annulé</option>
+              </select>
+            } @else {
+              <div class="form-value">
+                <span class="status-badge" [style.background-color]="getStatusColor(stageData()!.statut)">
+                  {{ getStatusText(stageData()!.statut) }}
+                </span>
+              </div>
+            }
+          </div>
+          
+          <div class="form-group">
+            <label for="date_debut">Date de début</label>
+            @if (isEditMode()) {
+              <input 
+                type="date" 
+                id="date_debut"
+                [value]="stageData()!.date_debut || ''" 
+                (input)="updateStageData('date_debut', $event)"
+                class="form-control"
+              >
+            } @else {
+              <div class="form-value">{{ stageData()!.date_debut | date:'dd/MM/yyyy' }}</div>
+            }
+          </div>
+          
+          <div class="form-group">
+            <label for="date_fin">Date de fin</label>
+            @if (isEditMode()) {
+              <input 
+                type="date" 
+                id="date_fin"
+                [value]="stageData()!.date_fin || ''" 
+                (input)="updateStageData('date_fin', $event)"
+                class="form-control"
+              >
+            } @else {
+              <div class="form-value">{{ stageData()!.date_fin | date:'dd/MM/yyyy' }}</div>
+            }
+          </div>
+
+          <div class="form-group">
+            <label>Prolongation</label>
+            <div class="form-value">{{ stageData()!.prolongation ? 'Oui' : 'Non' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Informations sur les dates -->
+      <div class="details-section">
+        <h3>Informations sur les dates</h3>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="date_debut">Date de début</label>
+            @if (isEditMode()) {
+              <input 
+                type="date" 
+                id="date_debut"
+                [value]="stageData()!.date_debut || ''" 
+                (input)="updateStageData('date_debut', $event)"
+                class="form-control"
+              >
+            } @else {
+              <div class="form-value">{{ stageData()!.date_debut | date:'dd/MM/yyyy' }}</div>
+            }
+          </div>
+          
+          <div class="form-group">
+            <label for="date_fin">Date de fin</label>
+            @if (isEditMode()) {
+              <input 
+                type="date" 
+                id="date_fin"
+                [value]="stageData()!.date_fin || ''" 
+                (input)="updateStageData('date_fin', $event)"
+                class="form-control"
+              >
+            } @else {
+              <div class="form-value">{{ stageData()!.date_fin | date:'dd/MM/yyyy' }}</div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Subject Information -->
+      @if (stageData()?.sujet) {
+        <div class="details-section">
+          <h3>Sujet de Stage</h3>
+          <div class="form-group">
+            <label>Titre</label>
+            <div class="form-value">{{ stageData()!.sujet!.titre }}</div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <div class="form-value description">{{ stageData()!.sujet!.description }}</div>
+          </div>
+        </div>
+      }
+
+      <!-- Informations supplémentaires -->
+      <div class="details-section">
+        <h3>Informations supplémentaires</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <label>Date de création</label>
+            <div class="form-value">{{ stageData()!.created_at | date:'dd/MM/yyyy à HH:mm' }}</div>
+          </div>
+          
+          <div class="stat-item">
+            <label>Dernière modification</label>
+            <div class="form-value">{{ stageData()!.updated_at | date:'dd/MM/yyyy à HH:mm' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Documents -->
+      <div class="details-section">
+        <h3>Documents</h3>
+        <div class="documents-grid">
+          
+          <!-- CIN -->
+          @if (cinPreviewUrl()) {
+            <div class="document-item">
+              <h4>CIN du stagiaire</h4>
+              <div class="document-preview">
+                <iframe [src]="cinPreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+          <!-- CV -->
+          @if (cvPreviewUrl()) {
+            <div class="document-item">
+              <h4>CV</h4>
+              <div class="document-preview">
+                <iframe [src]="cvPreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+          <!-- Convention -->
+          @if (conventionPreviewUrl()) {
+            <div class="document-item">
+              <h4>Convention de stage</h4>
+              <div class="document-preview">
+                <iframe [src]="conventionPreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+          <!-- Assurance -->
+          @if (assurancePreviewUrl()) {
+            <div class="document-item">
+              <h4>Assurance</h4>
+              <div class="document-preview">
+                <iframe [src]="assurancePreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+          <!-- Lettre de motivation -->
+          @if (lettreMotivationPreviewUrl()) {
+            <div class="document-item">
+              <h4>Lettre de motivation</h4>
+              <div class="document-preview">
+                <iframe [src]="lettreMotivationPreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+          <!-- Demande de stage -->
+          @if (demandeStagePreviewUrl()) {
+            <div class="document-item">
+              <h4>Demande de stage</h4>
+              <div class="document-preview">
+                <iframe [src]="demandeStagePreviewUrl()!" class="document-iframe"></iframe>
+              </div>
+            </div>
+          }
+
+        </div>
+      </div>
+
+      <!-- Missing Documents Upload Section -->
+      @if (stageData()?.statut === 'en_attente_depot_dossier') {
+        <div class="details-section">
+          <h3>Documents manquants</h3>
+          <p class="section-description">Veuillez télécharger les documents manquants pour compléter le dossier de stage.</p>
+          
+          <div class="upload-grid">
+            <!-- Convention -->
+            @if (!conventionPreviewUrl()) {
+              <div class="upload-item">
+                <label for="convention-upload" class="upload-label">
+                  <i class="upload-icon">📄</i>
+                  <span class="upload-text">Convention de stage</span>
+                  <span class="upload-hint">PDF requis</span>
+                </label>
+                <input 
+                  type="file" 
+                  id="convention-upload"
+                  accept=".pdf"
+                  (change)="onFileSelected('convention', $event)"
+                  class="upload-input"
+                >
+                @if (uploadProgress()['convention'] > 0) {
+                  <div class="upload-progress">
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="uploadProgress()['convention']"></div>
+                    </div>
+                    <span class="progress-text">{{ uploadProgress()['convention'] }}%</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Assurance -->
+            @if (!assurancePreviewUrl()) {
+              <div class="upload-item">
+                <label for="assurance-upload" class="upload-label">
+                  <i class="upload-icon">🛡️</i>
+                  <span class="upload-text">Assurance</span>
+                  <span class="upload-hint">PDF requis</span>
+                </label>
+                <input 
+                  type="file" 
+                  id="assurance-upload"
+                  accept=".pdf"
+                  (change)="onFileSelected('assurance', $event)"
+                  class="upload-input"
+                >
+                @if (uploadProgress()['assurance'] > 0) {
+                  <div class="upload-progress">
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="uploadProgress()['assurance']"></div>
+                    </div>
+                    <span class="progress-text">{{ uploadProgress()['assurance'] }}%</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Lettre de motivation -->
+            @if (!lettreMotivationPreviewUrl()) {
+              <div class="upload-item">
+                <label for="lettre-motivation-upload" class="upload-label">
+                  <i class="upload-icon">✉️</i>
+                  <span class="upload-text">Lettre de motivation</span>
+                  <span class="upload-hint">PDF requis</span>
+                </label>
+                <input 
+                  type="file" 
+                  id="lettre-motivation-upload"
+                  accept=".pdf"
+                  (change)="onFileSelected('lettre_motivation', $event)"
+                  class="upload-input"
+                >
+                @if (uploadProgress()['lettre_motivation'] > 0) {
+                  <div class="upload-progress">
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="uploadProgress()['lettre_motivation']"></div>
+                    </div>
+                    <span class="progress-text">{{ uploadProgress()['lettre_motivation'] }}%</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Demande de stage -->
+            @if (!demandeStagePreviewUrl()) {
+              <div class="upload-item">
+                <label for="demande-stage-upload" class="upload-label">
+                  <i class="upload-icon">📋</i>
+                  <span class="upload-text">Demande de stage</span>
+                  <span class="upload-hint">PDF requis</span>
+                </label>
+                <input 
+                  type="file" 
+                  id="demande-stage-upload"
+                  accept=".pdf"
+                  (change)="onFileSelected('demande_de_stage', $event)"
+                  class="upload-input"
+                >
+                @if (uploadProgress()['demande_de_stage'] > 0) {
+                  <div class="upload-progress">
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="uploadProgress()['demande_de_stage']"></div>
+                    </div>
+                    <span class="progress-text">{{ uploadProgress()['demande_de_stage'] }}%</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          @if (hasSelectedFiles()) {
+            <div class="upload-actions">
+              <button 
+                (click)="uploadSelectedFiles()" 
+                [disabled]="isUploading()"
+                class="btn btn-primary upload-btn">
+                @if (isUploading()) {
+                  <span class="loading-spinner"></span>
+                  Téléchargement en cours...
+                } @else {
+                  📤 Télécharger les documents
+                }
+              </button>
+              <button 
+                (click)="clearSelectedFiles()" 
+                [disabled]="isUploading()"
+                class="btn btn-secondary clear-btn">
+                Annuler
+              </button>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Timeline -->
+      <div class="details-section">
+        <h3>Historique</h3>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <h4>Stage créé</h4>
+              <p>{{ stageData()?.created_at | date:'dd/MM/yyyy à HH:mm' }}</p>
+            </div>
+          </div>
+          @if (stageData()?.updated_at !== stageData()?.created_at) {
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <h4>Dernière modification</h4>
+                <p>{{ stageData()?.updated_at | date:'dd/MM/yyyy à HH:mm' }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+  }
+</div>

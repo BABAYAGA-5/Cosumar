@@ -206,3 +206,30 @@ SELECT
     NOW(),
     FALSE
 FROM generate_series(1,100) s(i);
+
+
+-- ==========================
+-- Insert into Utilisateur
+-- ==========================
+INSERT INTO auth_service_utilisateur (prenom, nom, email, mot_de_passe, date_creation, is_active, role)
+VALUES 
+('Ali', 'Bennani', 'ali.bennani@example.com', 'hashed_password1', NOW(), TRUE, 'admin'),
+('Sara', 'El Amrani', 'sara.amrani@example.com', 'hashed_password2', NOW(), TRUE, 'hr_manager'),
+('Youssef', 'Mouline', 'youssef.mouline@example.com', 'hashed_password3', NOW(), TRUE, 'hr_user'),
+('Nadia', 'Karimi', 'nadia.karimi@example.com', 'hashed_password4', NOW(), TRUE, 'hr_user'),
+('Omar', 'Touhami', 'omar.touhami@example.com', 'hashed_password5', NOW(), TRUE, 'hr_user'),
+('Fatima', 'Zahra', 'fatima.zahra@example.com', 'hashed_password6', NOW(), TRUE, 'hr_manager'),
+('Hicham', 'Belkadi', 'hicham.belkadi@example.com', 'hashed_password7', NOW(), TRUE, 'admin'),
+('Khalid', 'Essafi', 'khalid.essafi@example.com', 'hashed_password8', NOW(), TRUE, 'hr_user');
+
+-- Check inserted users
+SELECT id, prenom, nom, role FROM auth_service_utilisateur;
+INSERT INTO resume_service_sujet 
+(created_by_id, created_at, titre, description, deleted, deleted_at, deleted_by_id)
+VALUES
+(3, NOW(), 'Digital Banking Strategy', 'Sujet sur la transformation digitale des banques.', FALSE, NULL, NULL),
+(4, NOW(), 'HR Digitalization', 'Sujet sur l’automatisation des processus RH.', FALSE, NULL, NULL),
+(5, NOW(), 'Recruitment Automation', 'Sujet concernant l’utilisation de l’IA dans le recrutement.', TRUE, NOW(), 3),
+(8, NOW(), 'Shariah Audit Practices', 'Sujet lié aux audits Sharia dans les banques.', FALSE, NULL, NULL),
+(9, NOW(), 'Corporate Governance', 'Sujet sur la gouvernance bancaire et les réglementations.', FALSE, NULL, NULL);
+
