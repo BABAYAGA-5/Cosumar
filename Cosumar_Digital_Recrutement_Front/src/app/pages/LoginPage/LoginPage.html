@@ -1,30 +1,103 @@
-<nav class="navbar">
-  <div class="logo">
-    <img src="assets/images/Logo.jpg" alt="Logo" 
-         onerror="console.log('Logo.jpg failed to load from assets/images/'); this.onerror=null; this.src='assets/Logo.jpg';"
-         onload="console.log('Logo loaded successfully')">
-  </div>
-</nav>
+<div class="login-page">
+  <!-- Header with logo -->
+  <header class="header">
+    <div class="logo-container">
+      <img src="assets/images/Logo.jpg" alt="Cosumar Logo" class="logo" 
+           onerror="console.log('Logo.jpg failed to load from assets/images/'); this.onerror=null; this.src='assets/Logo.jpg';"
+           onload="console.log('Logo loaded successfully')">
+    </div>
+  </header>
 
-<div class="container">
-  <div class="image-side">
-    <img src="assets/images/Factory.jpg" alt="Image de connexion" 
-         onerror="console.log('Factory.jpg failed to load from assets/images/'); this.style.display='none'; this.nextElementSibling.style.display='flex';"
-         onload="console.log('Factory image loaded successfully')">
-    <!-- Fallback content if image doesn't load -->
-    <div style="display: none; background: linear-gradient(135deg, #2E8B57 0%, #228B22 100%); height: 100%; align-items: center; justify-content: center; color: white; font-size: 2rem; text-align: center;">
-      <div>
-        <h3>COSUMAR</h3>
-        <p style="font-size: 1rem; opacity: 0.9;">Plateforme de Recrutement Digital</p>
+  <!-- Main content -->
+  <main class="main-content">
+    <div class="login-container">
+      <!-- Left side with image and branding -->
+      <div class="brand-side">
+        <div class="brand-overlay">
+          <div class="brand-content">
+            <h1>COSUMAR</h1>
+            <p class="brand-subtitle">Plateforme de Recrutement Digital</p>
+            <div class="brand-features">
+              <div class="feature">
+                <i class="icon-check">✓</i>
+                <span>Processus de recrutement simplifié</span>
+              </div>
+              <div class="feature">
+                <i class="icon-check">✓</i>
+                <span>Suivi en temps réel</span>
+              </div>
+              <div class="feature">
+                <i class="icon-check">✓</i>
+                <span>Interface moderne et intuitive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <img src="assets/images/Factory.jpg" alt="Image de connexion" class="brand-image"
+             onerror="console.log('Factory.jpg failed to load from assets/images/'); this.style.display='none';"
+             onload="console.log('Factory image loaded successfully')">
+      </div>
+
+      <!-- Right side with login form -->
+      <div class="form-side">
+        <div class="form-content">
+          <div class="form-header">
+            <h2>Bienvenue</h2>
+            <p>Connectez-vous à votre compte</p>
+          </div>
+
+          <form class="login-form" (submit)="onLogin(); $event.preventDefault()">
+            <div class="input-group">
+              <label for="email">Adresse email</label>
+              <div class="input-wrapper">
+                <i class="input-icon">📧</i>
+                <input 
+                  id="email"
+                  type="email" 
+                  placeholder="Entrez votre email" 
+                  required 
+                  (input)="onEmailChange($event)"
+                  [value]="email">
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="password">Mot de passe</label>
+              <div class="input-wrapper">
+                <i class="input-icon">🔒</i>
+                <input 
+                  id="password"
+                  type="password" 
+                  placeholder="Entrez votre mot de passe" 
+                  required 
+                  (input)="onMotDePasseChange($event)"
+                  [value]="mot_de_passe"
+                  (keyup.enter)="onLogin()">
+              </div>
+            </div>
+
+            <button type="button" class="login-btn" (click)="onLogin()">
+              <span>Se connecter</span>
+              <i class="btn-icon">→</i>
+            </button>
+
+            <div class="form-footer">
+              <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+            </div>
+
+            @if (loginMessage) {
+              <div class="login-message" [class.success]="loginMessage.includes('successful')" [class.error]="loginMessage.includes('Invalid')">
+                {{ loginMessage }}
+              </div>
+            }
+          </form>
+        </div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <div class="form-side">
-    <h2>Connexion</h2>
-    <input type="email" placeholder="Email" required (input)="onEmailChange($event)">
-    <input type="password" placeholder="Mot de passe" required (input)="onMotDePasseChange($event)">
-    <button type="submit" (click)="onLogin()">Se connecter</button>
-    <p class="login-message">{{ loginMessage }}</p>
-  </div>
+  <!-- Footer -->
+  <footer class="footer">
+    <p>&copy; 2025 Cosumar. Tous droits réservés.</p>
+  </footer>
 </div>

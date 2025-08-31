@@ -28,7 +28,7 @@ interface StageData {
   statut: string;
   date_debut: string;
   date_fin: string;
-  prolongation: boolean;
+  prolongation: string | null;
   created_at: string;
   updated_at: string;
   stagiaire: StagiaireData;
@@ -67,7 +67,31 @@ export class StageDetails implements OnInit, OnDestroy {
   isSaving = signal(false);
   isUploading = signal(false);
 
-  // File upload state
+  // Document upload state (like CreationStage)
+  documents = signal<{[key: string]: File | null}>({
+    convention: null,
+    assurance: null,
+    lettre_motivation: null,
+    demande_de_stage: null,
+    cv: null
+  });
+
+  documentDragStates = signal<{[key: string]: boolean}>({
+    convention: false,
+    assurance: false,
+    lettre_motivation: false,
+    demande_de_stage: false,
+    cv: false
+  });
+
+  // Sujet selection (like CreationStage)
+  selectedSujet = signal<SujetData | null>(null);
+  isLoadingSujets = signal(false);
+  sujetSearchQuery = signal('');
+  filteredSujets = signal<SujetData[]>([]);
+  private sujetSearchDebounceTimer: any = null;
+
+  // File upload state (legacy - keeping for compatibility)
   selectedFiles = signal<{ [key: string]: File }>({});
   uploadProgress = signal<{ [key: string]: number }>({
     convention: 0,
@@ -94,6 +118,11 @@ export class StageDetails implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Clean up any object URLs
     this.cleanupPreviewUrls();
+    
+    // Clean up debounce timer
+    if (this.sujetSearchDebounceTimer) {
+      clearTimeout(this.sujetSearchDebounceTimer);
+    }
   }
 
   private cleanupPreviewUrls(): void {
@@ -139,6 +168,12 @@ export class StageDetails implements OnInit, OnDestroy {
       next: (response) => {
         if (response.success && response.data) {
           this.stageData.set(response.data);
+          
+          // Initialize sujet selection state
+          if (response.data.sujet) {
+            this.selectedSujet.set(response.data.sujet);
+          }
+          
           this.loadDocumentPreviews(response.data);
           this.isLoading.set(false);
         } else {
@@ -260,7 +295,7 @@ export class StageDetails implements OnInit, OnDestroy {
     this.isSaving.set(true);
 
     // Prepare data for update API (send only editable fields)
-    const updateData = {
+    const updateData: any = {
       nature: stageData.nature,
       date_debut: stageData.date_debut,
       date_fin: stageData.date_fin,
@@ -274,6 +309,11 @@ export class StageDetails implements OnInit, OnDestroy {
         date_naissance: stageData.stagiaire.date_naissance
       }
     };
+
+    // Include sujet data if it exists
+    if (stageData.sujet) {
+      updateData.sujet_id = stageData.sujet.id;
+    }
 
     this.http.put(`${environment.apiUrl}resume/update_stage/${stageData.id}/`, updateData, {
       headers: this.getAuthHeaders()
@@ -323,9 +363,9 @@ export class StageDetails implements OnInit, OnDestroy {
 
   getNatureText(nature: string): string {
     const natureTexts: { [key: string]: string } = {
-      'stage': 'Stage',
+      'stage_observation': 'Stage d\'observation',
       'pfe': 'PFE',
-      'alternance': 'Alternance'
+      'stage_application': 'Stage d\'application'
     };
     return natureTexts[nature] || nature;
   }
@@ -343,6 +383,70 @@ export class StageDetails implements OnInit, OnDestroy {
       'termine': '#22c55e'
     };
     return statusColors[statut] || '#6b7280';
+  }
+
+  // Sujet selection methods
+  onSujetSearchQueryChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const query = target.value.trim();
+    this.sujetSearchQuery.set(query);
+
+    if (this.sujetSearchDebounceTimer) {
+      clearTimeout(this.sujetSearchDebounceTimer);
+    }
+
+    this.isLoadingSujets.set(true);
+
+    this.sujetSearchDebounceTimer = setTimeout(() => {
+      this.searchSujets(query);
+    }, 300);
+  }
+
+  async searchSujets(query: string): Promise<void> {
+    try {
+      const response = await this.http.get<SujetData[]>(
+        `${environment.apiUrl}resume/chercher_sujets/?search=${encodeURIComponent(query)}`,
+        {
+          headers: this.getAuthHeaders()
+        }
+      ).toPromise();
+
+      this.filteredSujets.set(response || []);
+    } catch (error) {
+      console.error('Error searching sujets:', error);
+      this.filteredSujets.set([]);
+    } finally {
+      this.isLoadingSujets.set(false);
+    }
+  }
+
+  selectSujet(sujet: SujetData): void {
+    // Update the stage data with the selected sujet
+    const stageData = this.stageData();
+    if (stageData) {
+      const updatedStageData = { ...stageData, sujet };
+      this.stageData.set(updatedStageData);
+    }
+    
+    // Update UI state
+    this.selectedSujet.set(sujet);
+    this.sujetSearchQuery.set(`${sujet.titre}`);
+    this.filteredSujets.set([]);
+  }
+
+  clearSujetSelection(): void {
+    // Remove sujet from stage data
+    const stageData = this.stageData();
+    if (stageData) {
+      const updatedStageData = { ...stageData };
+      delete updatedStageData.sujet;
+      this.stageData.set(updatedStageData);
+    }
+    
+    // Clear UI state
+    this.selectedSujet.set(null);
+    this.sujetSearchQuery.set('');
+    this.filteredSujets.set([]);
   }
 
   // File upload methods
@@ -461,5 +565,123 @@ export class StageDetails implements OnInit, OnDestroy {
         }
       });
     });
+  }
+
+  // New document handling methods (like CreationStage)
+  async onDocumentSelected(event: Event, documentType: string): Promise<void> {
+    const target = event.target as HTMLInputElement;
+    const files = target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (this.isValidDocumentType(file)) {
+        this.documents.update(docs => ({
+          ...docs,
+          [documentType]: file
+        }));
+        console.log(`Document selected for ${documentType}:`, file.name);
+      }
+    }
+  }
+
+  onDocumentDragOver(event: DragEvent, documentType: string): void {
+    event.preventDefault();
+    this.documentDragStates.update(states => ({
+      ...states,
+      [documentType]: true
+    }));
+  }
+
+  onDocumentDragLeave(event: DragEvent, documentType: string): void {
+    event.preventDefault();
+    this.documentDragStates.update(states => ({
+      ...states,
+      [documentType]: false
+    }));
+  }
+
+  async onDocumentDropped(event: DragEvent, documentType: string): Promise<void> {
+    event.preventDefault();
+    this.documentDragStates.update(states => ({
+      ...states,
+      [documentType]: false
+    }));
+    
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      if (this.isValidDocumentType(file)) {
+        this.documents.update(docs => ({
+          ...docs,
+          [documentType]: file
+        }));
+        console.log(`Document dropped for ${documentType}:`, file.name);
+      }
+    }
+  }
+
+  private isValidDocumentType(file: File): boolean {
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    return allowedTypes.includes(file.type);
+  }
+
+  removeDocument(documentType: string): void {
+    this.documents.update(docs => ({
+      ...docs,
+      [documentType]: null
+    }));
+    
+    // Clear the file input
+    const fileInputs = document.querySelectorAll(`input[type="file"]`);
+    fileInputs.forEach((input: any) => {
+      if (input.accept === '.pdf,.doc,.docx') {
+        input.value = '';
+      }
+    });
+  }
+
+  hasDocumentsToUpload(): boolean {
+    const docs = this.documents();
+    return Object.values(docs).some(doc => doc !== null);
+  }
+
+  async uploadDocuments(): Promise<void> {
+    const docs = this.documents();
+    const stageData = this.stageData();
+    
+    if (!stageData) {
+      console.error('No stage data available');
+      return;
+    }
+
+    this.isUploading.set(true);
+    
+    try {
+      for (const [docType, file] of Object.entries(docs)) {
+        if (file) {
+          await this.uploadDocument(docType, file, stageData.id);
+        }
+      }
+      
+      // Clear uploaded documents
+      this.documents.set({
+        convention: null,
+        assurance: null,
+        lettre_motivation: null,
+        demande_de_stage: null
+      });
+      
+      // Reload the stage to show updated documents
+      this.loadStageById(stageData.id.toString());
+      
+      console.log('All documents uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading documents:', error);
+    } finally {
+      this.isUploading.set(false);
+    }
   }
 }

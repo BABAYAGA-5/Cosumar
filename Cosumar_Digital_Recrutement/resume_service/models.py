@@ -53,14 +53,14 @@ class Stage(models.Model):
         db_column='stagiaire_id'
     )
     nature = models.CharField(max_length=50, choices=[
-        ('stage', 'Stage'),
+        ('stage_observation', 'Stage d\'observation'),
+        ('stage_application', 'Stage d\'application'),
         ('pfe', 'PFE'),
-        ('alternance', 'Alternance'),
-    ], default='stage')
+    ], default='stage_observation')
     sujet = models.ForeignKey(Sujet, on_delete=models.CASCADE, related_name='stages', null=True, blank=True)
     date_debut = models.DateField(null=True, blank=True)
     date_fin = models.DateField(null=True, blank=True)
-    prolongation = models.BooleanField(default=False)
+    prolongation = models.DateField(null=True, blank=True, default=None)
     statut = models.CharField(
         max_length=50,
         choices=[
@@ -106,6 +106,9 @@ class Logs(models.Model):
     action = models.CharField(max_length=100)
     date_action = models.DateTimeField(auto_now_add=True)
 
+
+    def __str__(self):
+        return self.nom
 
 class Meta:
     demande_de_stage = models.BinaryField(null=True, blank=True)

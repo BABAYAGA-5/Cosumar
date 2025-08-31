@@ -57,34 +57,44 @@
     <div class="stage-details">
       
       <!-- Stagiaire Information -->
-      <div class="details-section">
-        <h3>Informations du Stagiaire</h3>
+      <div class="details-section readonly-section">
+        <div class="section-header">
+          <h3>Informations du Stagiaire</h3>
+          <span class="readonly-badge">
+            <i class="icon-lock"></i>
+            Non modifiable
+          </span>
+        </div>
         @if (stageData()?.stagiaire) {
           <div class="form-grid">
             <div class="form-group">
               <label>Matricule</label>
-              <div class="form-value">{{ stageData()!.stagiaire.matricule }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.matricule }}</div>
             </div>
             <div class="form-group">
               <label>Nom</label>
-              <div class="form-value">{{ stageData()!.stagiaire.nom }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.nom }}</div>
             </div>
             <div class="form-group">
               <label>Prénom</label>
-              <div class="form-value">{{ stageData()!.stagiaire.prenom }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.prenom }}</div>
             </div>
             <div class="form-group">
               <label>Email</label>
-              <div class="form-value">{{ stageData()!.stagiaire.email || 'Non renseigné' }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.email || 'Non renseigné' }}</div>
             </div>
             <div class="form-group">
               <label>Téléphone</label>
-              <div class="form-value">{{ stageData()!.stagiaire.num_tel || 'Non renseigné' }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.num_tel || 'Non renseigné' }}</div>
             </div>
             <div class="form-group">
               <label>Date de naissance</label>
-              <div class="form-value">{{ stageData()!.stagiaire.date_naissance || 'Non renseignée' }}</div>
+              <div class="form-value readonly">{{ stageData()!.stagiaire.date_naissance || 'Non renseignée' }}</div>
             </div>
+          </div>
+          <div class="readonly-notice">
+            <i class="icon-info"></i>
+            <span>Les informations du stagiaire ne peuvent pas être modifiées depuis cette page. Pour modifier ces données, veuillez contacter l'administrateur.</span>
           </div>
         }
       </div>
@@ -102,9 +112,9 @@
                 (change)="updateStageData('nature', $event)"
                 class="form-control"
               >
-                <option value="stage">Stage</option>
+                <option value="stage_observation">Stage d'observation</option>
                 <option value="pfe">PFE</option>
-                <option value="alternance">Alternance</option>
+                <option value="stage_application">Stage d'application</option>
               </select>
             } @else {
               <div class="form-value">{{ getNatureText(stageData()!.nature) }}</div>
@@ -170,52 +180,36 @@
           </div>
 
           <div class="form-group">
-            <label>Prolongation</label>
-            <div class="form-value">{{ stageData()!.prolongation ? 'Oui' : 'Non' }}</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Informations sur les dates -->
-      <div class="details-section">
-        <h3>Informations sur les dates</h3>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="date_debut">Date de début</label>
-            @if (isEditMode()) {
+            <label for="prolongation">Date de prolongation</label>
+            @if (isEditMode() && stageData()!.statut === 'stage_en_cours') {
               <input 
                 type="date" 
-                id="date_debut"
-                [value]="stageData()!.date_debut || ''" 
-                (input)="updateStageData('date_debut', $event)"
+                id="prolongation"
+                [value]="stageData()!.prolongation || ''" 
+                (input)="updateStageData('prolongation', $event)"
                 class="form-control"
+                placeholder="Sélectionner une date de prolongation"
               >
+              <small class="form-text">Laissez vide si aucune prolongation n'est prévue</small>
             } @else {
-              <div class="form-value">{{ stageData()!.date_debut | date:'dd/MM/yyyy' }}</div>
-            }
-          </div>
-          
-          <div class="form-group">
-            <label for="date_fin">Date de fin</label>
-            @if (isEditMode()) {
-              <input 
-                type="date" 
-                id="date_fin"
-                [value]="stageData()!.date_fin || ''" 
-                (input)="updateStageData('date_fin', $event)"
-                class="form-control"
-              >
-            } @else {
-              <div class="form-value">{{ stageData()!.date_fin | date:'dd/MM/yyyy' }}</div>
+              <div class="form-value">
+                @if (stageData()!.prolongation) {
+                  <span class="prolongation-date">{{ stageData()!.prolongation | date:'dd/MM/yyyy' }}</span>
+                  <span class="prolongation-badge">Prolongé</span>
+                } @else {
+                  <span class="no-prolongation">Aucune prolongation</span>
+                }
+              </div>
             }
           </div>
         </div>
       </div>
 
       <!-- Subject Information -->
-      @if (stageData()?.sujet) {
-        <div class="details-section">
-          <h3>Sujet de Stage</h3>
+      <div class="details-section">
+        <h3>Sujet de Stage</h3>
+        @if (stageData()?.sujet && !isEditMode()) {
+          <!-- Read-only view -->
           <div class="form-group">
             <label>Titre</label>
             <div class="form-value">{{ stageData()!.sujet!.titre }}</div>
@@ -224,29 +218,84 @@
             <label>Description</label>
             <div class="form-value description">{{ stageData()!.sujet!.description }}</div>
           </div>
-        </div>
-      }
-
-      <!-- Informations supplémentaires -->
-      <div class="details-section">
-        <h3>Informations supplémentaires</h3>
-        <div class="stats-grid">
-          <div class="stat-item">
-            <label>Date de création</label>
-            <div class="form-value">{{ stageData()!.created_at | date:'dd/MM/yyyy à HH:mm' }}</div>
+        } @else if (isEditMode()) {
+          <!-- Edit mode with sujet selection -->
+          <p class="form-note">Recherchez et assignez un sujet spécifique pour ce stage :</p>
+          
+          <div class="form-group">
+            <label for="sujet-search">Rechercher un sujet</label>
+            <div class="search-container">
+              <input 
+                type="text"
+                id="sujet-search"
+                [value]="sujetSearchQuery()"
+                (input)="onSujetSearchQueryChange($event)"
+                placeholder="Rechercher par titre ou description..."
+                class="search-input"
+              >
+              <i class="search-icon">🔍</i>
+            </div>
+            
+            @if (isLoadingSujets()) {
+              <div class="search-loading">
+                <span class="spinner small"></span>
+                <span>Recherche en cours...</span>
+              </div>
+            }
+            
+            @if (sujetSearchQuery() && filteredSujets().length > 0) {
+              <div class="search-results">
+                @for (sujet of filteredSujets(); track sujet.id) {
+                  <div 
+                    class="sujet-item"
+                    [class.selected]="stageData()?.sujet?.id === sujet.id"
+                    (click)="selectSujet(sujet)"
+                  >
+                    <div class="sujet-item-info">
+                      <span class="sujet-title">{{ sujet.titre }}</span>
+                      @if (sujet.description) {
+                        <span class="sujet-description">{{ sujet.description | slice:0:100 }}{{ sujet.description.length > 100 ? '...' : '' }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+            
+            @if (sujetSearchQuery() && filteredSujets().length === 0 && !isLoadingSujets() && !stageData()?.sujet) {
+              <div class="no-results">
+                <p>Aucun sujet trouvé pour "{{ sujetSearchQuery() }}"</p>
+              </div>
+            }
           </div>
           
-          <div class="stat-item">
-            <label>Dernière modification</label>
-            <div class="form-value">{{ stageData()!.updated_at | date:'dd/MM/yyyy à HH:mm' }}</div>
+          @if (stageData()?.sujet) {
+            <div class="sujet-preview">
+              <h4>Sujet sélectionné</h4>
+              <div class="sujet-info">
+                <p><strong>Titre:</strong> {{ stageData()!.sujet!.titre }}</p>
+                @if (stageData()?.sujet?.description) {
+                  <p><strong>Description:</strong> {{ stageData()!.sujet!.description }}</p>
+                }
+              </div>
+              <button type="button" class="clear-selection-btn" (click)="clearSujetSelection()">
+                Changer de sujet
+              </button>
+            </div>
+          }
+        } @else {
+          <!-- No sujet assigned -->
+          <div class="no-subject-message">
+            <p>Aucun sujet assigné à ce stage.</p>
+            <p><small>Activez le mode édition pour assigner un sujet.</small></p>
           </div>
-        </div>
+        }
       </div>
 
       <!-- Documents -->
       <div class="details-section">
         <h3>Documents</h3>
-        <div class="documents-grid">
+        <div class="documents-grid two-columns">
           
           <!-- CIN -->
           @if (cinPreviewUrl()) {
@@ -311,122 +360,330 @@
         </div>
       </div>
 
-      <!-- Missing Documents Upload Section -->
-      @if (stageData()?.statut === 'en_attente_depot_dossier') {
+      <!-- Document Management Section -->
+      @if (stageData()?.statut === 'en_attente_depot_dossier' || isEditMode()) {
         <div class="details-section">
-          <h3>Documents manquants</h3>
-          <p class="section-description">Veuillez télécharger les documents manquants pour compléter le dossier de stage.</p>
+          @if (isEditMode()) {
+            <h3>Gestion des documents</h3>
+            <p class="section-description">Vous pouvez télécharger de nouveaux documents ou remplacer les documents existants.</p>
+          } @else {
+            <h3>Documents manquants</h3>
+            <p class="section-description">Veuillez télécharger les documents manquants pour compléter le dossier de stage.</p>
+          }
           
-          <div class="upload-grid">
+          <div class="upload-grid two-columns">
             <!-- Convention -->
-            @if (!conventionPreviewUrl()) {
-              <div class="upload-item">
-                <label for="convention-upload" class="upload-label">
-                  <i class="upload-icon">📄</i>
-                  <span class="upload-text">Convention de stage</span>
-                  <span class="upload-hint">PDF requis</span>
-                </label>
-                <input 
-                  type="file" 
-                  id="convention-upload"
-                  accept=".pdf"
-                  (change)="onFileSelected('convention', $event)"
-                  class="upload-input"
-                >
-                @if (uploadProgress()['convention'] > 0) {
-                  <div class="upload-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill" [style.width.%]="uploadProgress()['convention']"></div>
-                    </div>
-                    <span class="progress-text">{{ uploadProgress()['convention'] }}%</span>
+            @if (!conventionPreviewUrl() || isEditMode()) {
+              <div class="document-upload-section">
+                <h4>
+                  Convention 
+                  @if (conventionPreviewUrl() && isEditMode()) {
+                    <span class="replace-indicator">(Remplacer)</span>
+                  } @else {
+                    <span class="required-later">(Requis)</span>
+                  }
+                </h4>
+                @if (conventionPreviewUrl() && isEditMode()) {
+                  <div class="current-document">
+                    <span class="current-doc-label">Document actuel:</span>
+                    <a [href]="conventionPreviewUrl()" target="_blank" class="current-doc-link">
+                      📄 Convention existante
+                    </a>
                   </div>
                 }
+                <div class="mini-upload-area" 
+                     (dragover)="onDocumentDragOver($event, 'convention')" 
+                     (dragleave)="onDocumentDragLeave($event, 'convention')" 
+                     (drop)="onDocumentDropped($event, 'convention')"
+                     [class.dragover]="documentDragStates()['convention']">
+                  <input 
+                    type="file" 
+                    #conventionInput
+                    accept=".pdf,.doc,.docx" 
+                    (change)="onDocumentSelected($event, 'convention')"
+                    style="display: none"
+                  >
+                  
+                  @if (!documents()['convention']) {
+                    <div class="mini-upload-placeholder">
+                      <i class="mini-upload-icon">📄</i>
+                      <p>
+                        @if (conventionPreviewUrl() && isEditMode()) {
+                          Remplacer la convention
+                        } @else {
+                          Convention de stage
+                        }
+                      </p>
+                      <button type="button" class="mini-upload-btn" (click)="conventionInput.click()">
+                        @if (conventionPreviewUrl() && isEditMode()) {
+                          Remplacer
+                        } @else {
+                          Télécharger
+                        }
+                      </button>
+                      <small>PDF, DOC, DOCX</small>
+                    </div>
+                  } @else {
+                    <div class="mini-file-preview">
+                      <span class="mini-file-name">{{ documents()['convention']?.name }}</span>
+                      <button type="button" class="mini-remove-btn" (click)="removeDocument('convention')">×</button>
+                    </div>
+                  }
+                </div>
               </div>
             }
 
             <!-- Assurance -->
-            @if (!assurancePreviewUrl()) {
-              <div class="upload-item">
-                <label for="assurance-upload" class="upload-label">
-                  <i class="upload-icon">🛡️</i>
-                  <span class="upload-text">Assurance</span>
-                  <span class="upload-hint">PDF requis</span>
-                </label>
-                <input 
-                  type="file" 
-                  id="assurance-upload"
-                  accept=".pdf"
-                  (change)="onFileSelected('assurance', $event)"
-                  class="upload-input"
-                >
-                @if (uploadProgress()['assurance'] > 0) {
-                  <div class="upload-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill" [style.width.%]="uploadProgress()['assurance']"></div>
-                    </div>
-                    <span class="progress-text">{{ uploadProgress()['assurance'] }}%</span>
+            @if (!assurancePreviewUrl() || isEditMode()) {
+              <div class="document-upload-section">
+                <h4>
+                  Assurance 
+                  @if (assurancePreviewUrl() && isEditMode()) {
+                    <span class="replace-indicator">(Remplacer)</span>
+                  } @else {
+                    <span class="required-later">(Requis)</span>
+                  }
+                </h4>
+                @if (assurancePreviewUrl() && isEditMode()) {
+                  <div class="current-document">
+                    <span class="current-doc-label">Document actuel:</span>
+                    <a [href]="assurancePreviewUrl()" target="_blank" class="current-doc-link">
+                      🛡️ Assurance existante
+                    </a>
                   </div>
                 }
+                <div class="mini-upload-area" 
+                     (dragover)="onDocumentDragOver($event, 'assurance')" 
+                     (dragleave)="onDocumentDragLeave($event, 'assurance')" 
+                     (drop)="onDocumentDropped($event, 'assurance')"
+                     [class.dragover]="documentDragStates()['assurance']">
+                  <input 
+                    type="file" 
+                    #assuranceInput
+                    accept=".pdf,.doc,.docx" 
+                    (change)="onDocumentSelected($event, 'assurance')"
+                    style="display: none"
+                  >
+                  
+                  @if (!documents()['assurance']) {
+                    <div class="mini-upload-placeholder">
+                      <i class="mini-upload-icon">🛡️</i>
+                      <p>
+                        @if (assurancePreviewUrl() && isEditMode()) {
+                          Remplacer l'assurance
+                        } @else {
+                          Attestation d'assurance
+                        }
+                      </p>
+                      <button type="button" class="mini-upload-btn" (click)="assuranceInput.click()">
+                        @if (assurancePreviewUrl() && isEditMode()) {
+                          Remplacer
+                        } @else {
+                          Télécharger
+                        }
+                      </button>
+                      <small>PDF, DOC, DOCX</small>
+                    </div>
+                  } @else {
+                    <div class="mini-file-preview">
+                      <span class="mini-file-name">{{ documents()['assurance']?.name }}</span>
+                      <button type="button" class="mini-remove-btn" (click)="removeDocument('assurance')">×</button>
+                    </div>
+                  }
+                </div>
               </div>
             }
 
             <!-- Lettre de motivation -->
-            @if (!lettreMotivationPreviewUrl()) {
-              <div class="upload-item">
-                <label for="lettre-motivation-upload" class="upload-label">
-                  <i class="upload-icon">✉️</i>
-                  <span class="upload-text">Lettre de motivation</span>
-                  <span class="upload-hint">PDF requis</span>
-                </label>
-                <input 
-                  type="file" 
-                  id="lettre-motivation-upload"
-                  accept=".pdf"
-                  (change)="onFileSelected('lettre_motivation', $event)"
-                  class="upload-input"
-                >
-                @if (uploadProgress()['lettre_motivation'] > 0) {
-                  <div class="upload-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill" [style.width.%]="uploadProgress()['lettre_motivation']"></div>
-                    </div>
-                    <span class="progress-text">{{ uploadProgress()['lettre_motivation'] }}%</span>
+            @if (!lettreMotivationPreviewUrl() || isEditMode()) {
+              <div class="document-upload-section">
+                <h4>
+                  Lettre de motivation 
+                  @if (lettreMotivationPreviewUrl() && isEditMode()) {
+                    <span class="replace-indicator">(Remplacer)</span>
+                  } @else {
+                    <span class="optional">(Optionnel)</span>
+                  }
+                </h4>
+                @if (lettreMotivationPreviewUrl() && isEditMode()) {
+                  <div class="current-document">
+                    <span class="current-doc-label">Document actuel:</span>
+                    <a [href]="lettreMotivationPreviewUrl()" target="_blank" class="current-doc-link">
+                      ✉️ Lettre existante
+                    </a>
                   </div>
                 }
+                <div class="mini-upload-area" 
+                     (dragover)="onDocumentDragOver($event, 'lettre_motivation')" 
+                     (dragleave)="onDocumentDragLeave($event, 'lettre_motivation')" 
+                     (drop)="onDocumentDropped($event, 'lettre_motivation')"
+                     [class.dragover]="documentDragStates()['lettre_motivation']">
+                  <input 
+                    type="file" 
+                    #lettreMotivationInput
+                    accept=".pdf,.doc,.docx" 
+                    (change)="onDocumentSelected($event, 'lettre_motivation')"
+                    style="display: none"
+                  >
+                  
+                  @if (!documents()['lettre_motivation']) {
+                    <div class="mini-upload-placeholder">
+                      <i class="mini-upload-icon">✉️</i>
+                      <p>
+                        @if (lettreMotivationPreviewUrl() && isEditMode()) {
+                          Remplacer la lettre
+                        } @else {
+                          Lettre de motivation
+                        }
+                      </p>
+                      <button type="button" class="mini-upload-btn" (click)="lettreMotivationInput.click()">
+                        @if (lettreMotivationPreviewUrl() && isEditMode()) {
+                          Remplacer
+                        } @else {
+                          Télécharger
+                        }
+                      </button>
+                      <small>PDF, DOC, DOCX</small>
+                    </div>
+                  } @else {
+                    <div class="mini-file-preview">
+                      <span class="mini-file-name">{{ documents()['lettre_motivation']?.name }}</span>
+                      <button type="button" class="mini-remove-btn" (click)="removeDocument('lettre_motivation')">×</button>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            <!-- CV -->
+            @if (isEditMode()) {
+              <div class="document-upload-section">
+                <h4>
+                  CV 
+                  @if (cvPreviewUrl()) {
+                    <span class="replace-indicator">(Remplacer)</span>
+                  } @else {
+                    <span class="required-later">(Requis)</span>
+                  }
+                </h4>
+                @if (cvPreviewUrl()) {
+                  <div class="current-document">
+                    <span class="current-doc-label">Document actuel:</span>
+                    <a [href]="cvPreviewUrl()" target="_blank" class="current-doc-link">
+                      📄 CV existant
+                    </a>
+                  </div>
+                }
+                <div class="mini-upload-area" 
+                     (dragover)="onDocumentDragOver($event, 'cv')" 
+                     (dragleave)="onDocumentDragLeave($event, 'cv')" 
+                     (drop)="onDocumentDropped($event, 'cv')"
+                     [class.dragover]="documentDragStates()['cv']">
+                  <input 
+                    type="file" 
+                    #cvInput
+                    accept=".pdf,.doc,.docx" 
+                    (change)="onDocumentSelected($event, 'cv')"
+                    style="display: none"
+                  >
+                  
+                  @if (!documents()['cv']) {
+                    <div class="mini-upload-placeholder">
+                      <i class="mini-upload-icon">📄</i>
+                      <p>
+                        @if (cvPreviewUrl()) {
+                          Remplacer le CV
+                        } @else {
+                          CV du stagiaire
+                        }
+                      </p>
+                      <button type="button" class="mini-upload-btn" (click)="cvInput.click()">
+                        @if (cvPreviewUrl()) {
+                          Remplacer
+                        } @else {
+                          Télécharger
+                        }
+                      </button>
+                      <small>PDF, DOC, DOCX</small>
+                    </div>
+                  } @else {
+                    <div class="mini-file-preview">
+                      <span class="mini-file-name">{{ documents()['cv']?.name }}</span>
+                      <button type="button" class="mini-remove-btn" (click)="removeDocument('cv')">×</button>
+                    </div>
+                  }
+                </div>
               </div>
             }
 
             <!-- Demande de stage -->
-            @if (!demandeStagePreviewUrl()) {
-              <div class="upload-item">
-                <label for="demande-stage-upload" class="upload-label">
-                  <i class="upload-icon">📋</i>
-                  <span class="upload-text">Demande de stage</span>
-                  <span class="upload-hint">PDF requis</span>
-                </label>
-                <input 
-                  type="file" 
-                  id="demande-stage-upload"
-                  accept=".pdf"
-                  (change)="onFileSelected('demande_de_stage', $event)"
-                  class="upload-input"
-                >
-                @if (uploadProgress()['demande_de_stage'] > 0) {
-                  <div class="upload-progress">
-                    <div class="progress-bar">
-                      <div class="progress-fill" [style.width.%]="uploadProgress()['demande_de_stage']"></div>
-                    </div>
-                    <span class="progress-text">{{ uploadProgress()['demande_de_stage'] }}%</span>
+            @if (isEditMode()) {
+              <div class="document-upload-section">
+                <h4>
+                  Demande de stage 
+                  @if (demandeStagePreviewUrl()) {
+                    <span class="replace-indicator">(Remplacer)</span>
+                  } @else {
+                    <span class="optional">(Optionnel)</span>
+                  }
+                </h4>
+                @if (demandeStagePreviewUrl()) {
+                  <div class="current-document">
+                    <span class="current-doc-label">Document actuel:</span>
+                    <a [href]="demandeStagePreviewUrl()" target="_blank" class="current-doc-link">
+                      📋 Demande existante
+                    </a>
                   </div>
                 }
+                <div class="mini-upload-area" 
+                     (dragover)="onDocumentDragOver($event, 'demande_de_stage')" 
+                     (dragleave)="onDocumentDragLeave($event, 'demande_de_stage')" 
+                     (drop)="onDocumentDropped($event, 'demande_de_stage')"
+                     [class.dragover]="documentDragStates()['demande_de_stage']">
+                  <input 
+                    type="file" 
+                    #demandeStageInput
+                    accept=".pdf,.doc,.docx" 
+                    (change)="onDocumentSelected($event, 'demande_de_stage')"
+                    style="display: none"
+                  >
+                  
+                  @if (!documents()['demande_de_stage']) {
+                    <div class="mini-upload-placeholder">
+                      <i class="mini-upload-icon">📋</i>
+                      <p>
+                        @if (demandeStagePreviewUrl()) {
+                          Remplacer la demande
+                        } @else {
+                          Demande de stage
+                        }
+                      </p>
+                      <button type="button" class="mini-upload-btn" (click)="demandeStageInput.click()">
+                        @if (demandeStagePreviewUrl()) {
+                          Remplacer
+                        } @else {
+                          Télécharger
+                        }
+                      </button>
+                      <small>PDF, DOC, DOCX</small>
+                    </div>
+                  } @else {
+                    <div class="mini-file-preview">
+                      <span class="mini-file-name">{{ documents()['demande_de_stage']?.name }}</span>
+                      <button type="button" class="mini-remove-btn" (click)="removeDocument('demande_de_stage')">×</button>
+                    </div>
+                  }
+                </div>
               </div>
             }
-          </div>
 
-          @if (hasSelectedFiles()) {
+          </div>
+          
+          <!-- Upload Action Button -->
+          @if (hasDocumentsToUpload()) {
             <div class="upload-actions">
               <button 
-                (click)="uploadSelectedFiles()" 
+                (click)="uploadDocuments()" 
                 [disabled]="isUploading()"
                 class="btn btn-primary upload-btn">
                 @if (isUploading()) {
@@ -436,40 +693,10 @@
                   📤 Télécharger les documents
                 }
               </button>
-              <button 
-                (click)="clearSelectedFiles()" 
-                [disabled]="isUploading()"
-                class="btn btn-secondary clear-btn">
-                Annuler
-              </button>
             </div>
           }
         </div>
       }
 
-      <!-- Timeline -->
-      <div class="details-section">
-        <h3>Historique</h3>
-        <div class="timeline">
-          <div class="timeline-item">
-            <div class="timeline-dot"></div>
-            <div class="timeline-content">
-              <h4>Stage créé</h4>
-              <p>{{ stageData()?.created_at | date:'dd/MM/yyyy à HH:mm' }}</p>
-            </div>
-          </div>
-          @if (stageData()?.updated_at !== stageData()?.created_at) {
-            <div class="timeline-item">
-              <div class="timeline-dot"></div>
-              <div class="timeline-content">
-                <h4>Dernière modification</h4>
-                <p>{{ stageData()?.updated_at | date:'dd/MM/yyyy à HH:mm' }}</p>
-              </div>
-            </div>
-          }
-        </div>
-      </div>
-
     </div>
   }
-</div>

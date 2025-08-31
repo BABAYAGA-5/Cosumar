@@ -13,7 +13,6 @@ urlpatterns = [
     path('chercher_sujets/', views.chercher_sujets, name='chercher_sujets'),
     path('process_cv/', views.process_cv, name='process_cv'),
     path('get_candidate_documents/<str:matricule>/', views.get_candidate_documents, name='get_candidate_documents'),
-    path('get_document_file/<str:stage_id>/<str:document_type>/', views.get_document_file, name='get_document_file'),
     path('recuperer_stage/<str:stage_id>/', views.recuperer_stage, name='recuperer_stage'),
     path('update_stage/<str:stage_id>/', views.update_stage, name='update_stage'),
     path('get_cin/<str:matricule>/', views.get_cin, name='get_cin'),

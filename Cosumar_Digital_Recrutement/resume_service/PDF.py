@@ -401,6 +401,173 @@ def create_pdf_from_docx_template_xml(docx_path: str, replacements: Dict[str, st
         traceback.print_exc()
         return b''
 
+def create_docx_from_template_xml(docx_path: str, replacements: Dict[str, str]) -> bytes:
+    """
+    Create a filled DOCX from DOCX template by working at XML level to preserve ALL document elements
+    
+    Args:
+        docx_path: Path to the DOCX template file
+        replacements: Dictionary of {placeholder: replacement_value}
+    
+    Returns:
+        DOCX content as bytes
+    """
+    try:
+        # Copy the original file to a temporary location
+        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_file:
+            temp_docx_path = temp_file.name
+            
+        # Copy original file
+        import shutil
+        shutil.copy2(docx_path, temp_docx_path)
+        
+        # Open as ZIP (DOCX is a ZIP file)
+        with zipfile.ZipFile(temp_docx_path, 'r') as zip_read:
+            # Extract all files
+            with tempfile.TemporaryDirectory() as temp_dir:
+                zip_read.extractall(temp_dir)
+                
+                # Process the main document XML
+                document_xml_path = os.path.join(temp_dir, 'word', 'document.xml')
+                if os.path.exists(document_xml_path):
+                    with open(document_xml_path, 'r', encoding='utf-8') as f:
+                        xml_content = f.read()
+                    
+                    # Debug: Find all placeholders in the template
+                    import re
+                    found_placeholders = re.findall(r'«[^»]+»', xml_content)
+                    print(f"🔍 Debug: Found placeholders in template: {found_placeholders}")
+                    
+                    # Also check for potential encoding variations
+                    alt_placeholders = re.findall(r'<<[^>]+>>', xml_content)  # Alternative format
+                    if alt_placeholders:
+                        print(f"🔍 Debug: Found alternative placeholders: {alt_placeholders}")
+                    
+                    # Replace placeholders in XML content
+                    replaced_count = 0
+                    for placeholder, replacement in replacements.items():
+                        original_count = xml_content.count(placeholder)
+                        if original_count > 0:
+                            xml_content = xml_content.replace(placeholder, replacement)
+                            print(f"✅ Replaced {original_count} instances of {placeholder} with '{replacement}' in document XML")
+                            replaced_count += original_count
+                        else:
+                            print(f"⚠️ Placeholder {placeholder} not found in document XML")
+                    
+                    print(f"📊 Debug: Total replacements made: {replaced_count}")
+                    
+                    # Final check: see what placeholders remain
+                    remaining_placeholders = re.findall(r'«[^»]+»', xml_content)
+                    if remaining_placeholders:
+                        print(f"⚠️ Remaining unreplaced placeholders: {remaining_placeholders}")
+                    
+                    # Write back the modified XML
+                    with open(document_xml_path, 'w', encoding='utf-8') as f:
+                        f.write(xml_content)
+                
+                # Process headers if they exist
+                headers_dir = os.path.join(temp_dir, 'word')
+                for file_name in os.listdir(headers_dir):
+                    if file_name.startswith('header') and file_name.endswith('.xml'):
+                        header_path = os.path.join(headers_dir, file_name)
+                        with open(header_path, 'r', encoding='utf-8') as f:
+                            xml_content = f.read()
+                        
+                        for placeholder, replacement in replacements.items():
+                            if placeholder in xml_content:
+                                xml_content = xml_content.replace(placeholder, replacement)
+                                print(f"✅ Replaced {placeholder} with {replacement} in {file_name}")
+                        
+                        with open(header_path, 'w', encoding='utf-8') as f:
+                            f.write(xml_content)
+                
+                # Process footers if they exist
+                for file_name in os.listdir(headers_dir):
+                    if file_name.startswith('footer') and file_name.endswith('.xml'):
+                        footer_path = os.path.join(headers_dir, file_name)
+                        with open(footer_path, 'r', encoding='utf-8') as f:
+                            xml_content = f.read()
+                        
+                        for placeholder, replacement in replacements.items():
+                            if placeholder in xml_content:
+                                xml_content = xml_content.replace(placeholder, replacement)
+                                print(f"✅ Replaced {placeholder} with {replacement} in {file_name}")
+                        
+                        with open(footer_path, 'w', encoding='utf-8') as f:
+                            f.write(xml_content)
+                
+                # Create new DOCX file with modified content
+                filled_docx_path = temp_docx_path + '_filled.docx'
+                with zipfile.ZipFile(filled_docx_path, 'w', zipfile.ZIP_DEFLATED) as zip_write:
+                    for root, dirs, files in os.walk(temp_dir):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            arc_name = os.path.relpath(file_path, temp_dir)
+                            zip_write.write(file_path, arc_name)
+        
+        # Read the filled DOCX content
+        with open(filled_docx_path, 'rb') as f:
+            docx_bytes = f.read()
+        
+        # Clean up temporary files
+        os.unlink(temp_docx_path)
+        os.unlink(filled_docx_path)
+        
+        print(f"🎉 Successfully created DOCX from template using XML method")
+        return docx_bytes
+        
+    except Exception as e:
+        print(f"❌ Error creating DOCX from template using XML method: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return b''
+
+def convert_docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
+    """
+    Convert DOCX bytes to PDF bytes
+    
+    Args:
+        docx_bytes: DOCX content as bytes
+    
+    Returns:
+        PDF content as bytes
+    """
+    try:
+        # Initialize COM for the current thread (Windows requirement)
+        import pythoncom
+        pythoncom.CoInitialize()
+        
+        try:
+            # Create temporary files
+            with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_docx_file:
+                temp_docx_path = temp_docx_file.name
+                temp_docx_file.write(docx_bytes)
+            
+            # Convert DOCX to PDF
+            temp_pdf_path = temp_docx_path.replace('.docx', '.pdf')
+            convert(temp_docx_path, temp_pdf_path)
+            
+            # Read PDF content
+            with open(temp_pdf_path, 'rb') as f:
+                pdf_bytes = f.read()
+            
+            # Clean up temporary files
+            os.unlink(temp_docx_path)
+            os.unlink(temp_pdf_path)
+            
+            print(f"🎉 Successfully converted DOCX bytes to PDF bytes")
+            return pdf_bytes
+            
+        finally:
+            # Always uninitialize COM
+            pythoncom.CoUninitialize()
+            
+    except Exception as e:
+        print(f"❌ Error converting DOCX bytes to PDF bytes: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return b''
+
 if __name__ == "__main__":
     pdf_path = "C:/Users/othma/Downloads/CV_FR-9.pdf"
     

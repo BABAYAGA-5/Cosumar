@@ -507,9 +507,9 @@ export class CreationStage implements OnInit, OnDestroy {
         
         if (response.documents.has_cv) {
           try {
-            // Download CV file as blob
+            // Download CV file as blob using get_stage_document
             const cvBlob = await this.http.get(
-              `${environment.apiUrl}resume/get_document_file/${response.stage_id}/cv/`,
+              `${environment.apiUrl}resume/get_stage_document/${response.stage_id}/cv/`,
               {
                 headers: new HttpHeaders({
                   'Authorization': `Bearer ${localStorage.getItem('access')}`
@@ -534,9 +534,9 @@ export class CreationStage implements OnInit, OnDestroy {
 
         if (response.documents.has_cin) {
           try {
-            // Download CIN file as blob
+            // Download CIN file as blob using get_cin with matricule
             const cinBlob = await this.http.get(
-              `${environment.apiUrl}resume/get_document_file/${response.stage_id}/cin/`,
+              `${environment.apiUrl}resume/get_cin/${matricule}/`,
               {
                 headers: new HttpHeaders({
                   'Authorization': `Bearer ${localStorage.getItem('access')}`

@@ -12,9 +12,18 @@ class Utilisateur(models.Model):
     is_active = models.BooleanField(default=True)
     role = models.CharField(max_length=50, choices=[
     ('admin', 'Administrateur'),
-    ('hr_manager', 'Responsable RH'),
-    ('hr_user', 'Utilisateur RH'),
-    ], default='hr_user')
+    ('admin_rh', 'Admin RH'),
+    ('utilisateur_rh', 'Utilisateur RH'),
+    ('utilisateur', 'Utilisateur'),
+    ], default='utilisateur_rh')
+
+    departement = models.CharField(max_length=100, choices=[
+        ('digital_factory', 'Digital Factory'),
+        ('ressources_humaines', 'Ressources Humaines'),
+        ('finance', 'Finance'),
+        ('marketing', 'Marketing'),
+        ('maintenance', 'Maintenance')
+    ], blank=True, null=True)
 
     REQUIRED_FIELDS = []
     USERNAME_FIELD = 'email'

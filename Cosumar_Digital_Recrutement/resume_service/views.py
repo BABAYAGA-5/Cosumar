@@ -9,7 +9,7 @@ from django.conf import settings
 from rest_framework import status
 import os
 import filetype
-from .PDF import extract_cv_data, create_pdf_from_docx_template_xml
+from .PDF import extract_cv_data, create_pdf_from_docx_template_xml, create_docx_from_template_xml, convert_docx_bytes_to_pdf_bytes
 from resume_service.models import Stage, Stagiaire, Sujet
 from auth_service.models import Utilisateur
 from django.db.models import Count, Q
@@ -265,29 +265,47 @@ def creer_stage(request):
                     '«PERIODE_ACCORDEE_AU»': stage.date_fin.strftime('%d/%m/%Y') if stage.date_fin else '',
                     '«SUJET»': sujet.titre if sujet and sujet.titre else '',
                     '«DESCRIPTION_SUJET»': sujet.description if sujet and sujet.description else '',
-                    '«DATE_DEMANDE»': datetime.now().strftime('%d/%m/%Y')
+                    '«DATE_DEMANDE»': datetime.now().strftime('%d/%m/%Y'),
+                    '«SPECIALITE»': '',
+                    '«ETABLISSEMENT»': '',
+                    '«DIRECTION»': '',
+                    '«ENCADRANT»': '',
+                    '«SERVICE»': '',
+                    '«NOM_ENCADRANT»': '',
+                    '«DATE_SIGNATURE_ENCADRANT»': '',
+                    '«NOM_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RH»': ''
                 }
                 
+                # Debug: Print all replacements
+                print(f"🔍 Debug: Replacements dictionary:")
+                for key, value in replacements.items():
+                    print(f"  {key} -> {value}")
+                
                 # Define output path for debugging
-                debug_filename = f"{stage.stagiaire.matricule}_demande_stage_{stage.id}.pdf"
+                debug_filename = f"{stage.stagiaire.matricule}_demande_stage_{stage.id}.docx"
                 debug_path = os.path.join(settings.BASE_DIR, 'resume_service', 'media', debug_filename)
                 
-                # Generate PDF from DOCX template using XML method
-                filled_pdf_bytes = create_pdf_from_docx_template_xml(
+                # Generate DOCX from template using XML method
+                filled_docx_bytes = create_docx_from_template_xml(
                     docx_path=docx_template_path,
-                    replacements=replacements,
-                    output_path=debug_path
+                    replacements=replacements
                 )
                 
-                if filled_pdf_bytes:
-                    # Save to database
-                    stage.demande_de_stage = filled_pdf_bytes
+                if filled_docx_bytes:
+                    # Save DOCX to database
+                    stage.demande_de_stage = filled_docx_bytes
                     stage.save()
                     
-                    print(f"✅ PDF demande de stage generated successfully for matricule: {stage.stagiaire.matricule}")
+                    # Save debug copy as DOCX
+                    with open(debug_path, 'wb') as debug_file:
+                        debug_file.write(filled_docx_bytes)
+                    
+                    print(f"✅ DOCX demande de stage generated successfully for matricule: {stage.stagiaire.matricule}")
                     print(f"📁 Debug copy saved at: {debug_path}")
                 else:
-                    print(f"❌ Failed to generate PDF from DOCX template")
+                    print(f"❌ Failed to generate DOCX from template")
                     
             else:
                 print(f"⚠️ Template DOCX not found at: {docx_template_path}")
@@ -394,40 +412,6 @@ def get_candidate_documents(request, matricule):
         return Response({
             "success": False,
             "error": f"Erreur lors de la récupération des documents: {str(e)}"
-        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-@csrf_exempt
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_document_file(request, stage_id, document_type):
-    """Serve document files from database"""
-    try:
-        stage = Stage.objects.get(id=stage_id, deleted=False)
-        
-        if document_type == 'cv' and stage.cv:
-            from django.http import HttpResponse
-            response = HttpResponse(stage.cv, content_type='application/pdf')
-            response['Content-Disposition'] = f'inline; filename="cv_stagiaire_{stage.stagiaire.matricule}.pdf"'
-            return response
-            
-        elif document_type == 'cin' and stage.stagiaire.cin:
-            from django.http import HttpResponse
-            response = HttpResponse(stage.stagiaire.cin, content_type='image/jpeg')
-            response['Content-Disposition'] = f'inline; filename="cin_stagiaire_{stage.stagiaire.matricule}.jpg"'
-            return response
-            
-        else:
-            return Response({
-                "error": "Document non trouvé"
-            }, status=status.HTTP_404_NOT_FOUND)
-            
-    except Stage.DoesNotExist:
-        return Response({
-            "error": "Stage non trouvé"
-        }, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({
-            "error": f"Erreur lors de la récupération du document: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @csrf_exempt
@@ -590,7 +574,7 @@ def recuperer_stage(request, stage_id):
             "statut": stage.statut,
             "date_debut": stage.date_debut.strftime('%Y-%m-%d') if stage.date_debut else None,
             "date_fin": stage.date_fin.strftime('%Y-%m-%d') if stage.date_fin else None,
-            "prolongation": stage.prolongation,
+            "prolongation": stage.prolongation.strftime('%Y-%m-%d') if stage.prolongation else None,
             "created_at": stage.created_at.strftime('%Y-%m-%d %H:%M:%S'),
             "updated_at": stage.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
 
@@ -656,7 +640,13 @@ def update_stage(request, stage_id):
         if 'statut' in data:
             stage.statut = data['statut']
         if 'prolongation' in data:
-            stage.prolongation = data['prolongation']
+            if data['prolongation']:
+                try:
+                    stage.prolongation = datetime.strptime(data['prolongation'], '%Y-%m-%d').date()
+                except ValueError:
+                    return Response({"error": "Invalid date format for prolongation. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                stage.prolongation = None
 
         # Update stagiaire fields if provided
         if 'stagiaire' in data:
@@ -725,13 +715,21 @@ def get_cin(request, matricule):
 def get_stage_document(request, stage_id, document_type):
     """Get stage document by stage ID and document type"""
     try:
+        print(f"🔍 Debug: Requesting document - stage_id: {stage_id}, document_type: {document_type}")
+        
         stage = Stage.objects.filter(id=stage_id, deleted=False).first()
         
         if not stage:
+            print(f"❌ Debug: Stage {stage_id} not found or deleted")
             return Response(
                 {"error": "Stage not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+        print(f"✅ Debug: Stage {stage_id} found")
+        print(f"🔍 Debug: Stage has demande_de_stage: {stage.demande_de_stage is not None}")
+        if stage.demande_de_stage:
+            print(f"🔍 Debug: demande_de_stage size: {len(stage.demande_de_stage)} bytes")
             
         document_data = None
         content_type = 'application/pdf'
@@ -739,15 +737,32 @@ def get_stage_document(request, stage_id, document_type):
         
         if document_type == 'cv' and stage.cv:
             document_data = stage.cv
+            print(f"✅ Debug: Found CV document")
         elif document_type == 'convention' and stage.convention:
             document_data = stage.convention
+            print(f"✅ Debug: Found convention document")
         elif document_type == 'assurance' and stage.assurance:
             document_data = stage.assurance
+            print(f"✅ Debug: Found assurance document")
         elif document_type == 'lettre_motivation' and stage.lettre_motivation:
             document_data = stage.lettre_motivation
+            print(f"✅ Debug: Found lettre_motivation document")
         elif document_type == 'demande_de_stage' and stage.demande_de_stage:
-            document_data = stage.demande_de_stage
+            print(f"🔄 Debug: Converting DOCX to PDF for demande_de_stage")
+            # Convert stored DOCX to PDF for serving
+            pdf_data = convert_docx_bytes_to_pdf_bytes(stage.demande_de_stage)
+            if pdf_data:
+                document_data = pdf_data
+                print(f"✅ Debug: Successfully converted DOCX to PDF, size: {len(pdf_data)} bytes")
+            else:
+                print(f"❌ Debug: Failed to convert DOCX to PDF")
+                return Response(
+                    {"error": "Failed to convert demande de stage to PDF"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
         else:
+            print(f"❌ Debug: Document '{document_type}' not found or empty")
+            print(f"🔍 Debug: Available documents - cv: {stage.cv is not None}, convention: {stage.convention is not None}, assurance: {stage.assurance is not None}, lettre_motivation: {stage.lettre_motivation is not None}, demande_de_stage: {stage.demande_de_stage is not None}")
             return Response(
                 {"error": f"Document '{document_type}' not found"},
                 status=status.HTTP_404_NOT_FOUND

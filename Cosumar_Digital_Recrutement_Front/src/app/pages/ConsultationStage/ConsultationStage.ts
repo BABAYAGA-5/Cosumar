@@ -152,9 +152,9 @@ export class ConsultationStage implements OnInit {
 
   getNatureText(nature: string): string {
     const natureTexts: { [key: string]: string } = {
-      'stage': 'Stage',
+      'stage_observation': 'Stage d\'observation',
       'pfe': 'PFE',
-      'alternance': 'Alternance'
+      'stage_application': 'Stage d\'application'
     };
     return natureTexts[nature] || nature;
   }

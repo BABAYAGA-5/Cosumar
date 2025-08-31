@@ -233,3 +233,25 @@ VALUES
 (8, NOW(), 'Shariah Audit Practices', 'Sujet lié aux audits Sharia dans les banques.', FALSE, NULL, NULL),
 (9, NOW(), 'Corporate Governance', 'Sujet sur la gouvernance bancaire et les réglementations.', FALSE, NULL, NULL);
 
+-- Change 'alternance' to 'stage_application'
+UPDATE resume_service_stage
+SET nature = 'stage_application'
+WHERE nature = 'alternance';
+
+-- Change 'stage' to 'stage_observation'
+UPDATE resume_service_stage
+SET nature = 'stage_observation'
+WHERE nature = 'stage';
+
+INSERT INTO auth_service_utilisateur 
+(prenom, nom, email, mot_de_passe, date_creation, is_active, role, departement)
+VALUES
+('Amina', 'El Mansouri', 'amina@example.com', 'e10adc3949ba59abbe56e057f20f883e', NOW(), true, 'admin', 'finance'),
+('Youssef', 'Benali', 'youssef@example.com', 'e10adc3949ba59abbe56e057f20f883e', NOW(), true, 'admin_rh', 'digital_factory'),
+('Salma', 'Haddad', 'salma@example.com', 'e10adc3949ba59abbe56e057f20f883e', NOW(), true, 'utilisateur_rh', 'marketing'),
+('Rachid', 'Karim', 'rachid@example.com', 'e10adc3949ba59abbe56e057f20f883e', NOW(), true, 'utilisateur', 'maintenance'),
+('Sara', 'Ouahid', 'sara@example.com', 'e10adc3949ba59abbe56e057f20f883e', NOW(), true, 'utilisateur_rh', 'ressources_humaines');
+
+UPDATE resume_service_sujet
+SET created_by_id = created_by_id + 
+WHERE email = 'amina@example.com';
