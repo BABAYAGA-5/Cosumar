@@ -50,6 +50,21 @@
               #f59e0b;
 }
 
+.stat-icon.sujets-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/book-open.svg') center/60% no-repeat,
+              #6366f1;
+}
+
+.stat-icon.stagiaires-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/graduation-cap.svg') center/60% no-repeat,
+              #06b6d4;
+}
+
+.stat-icon.attente-stat {
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/hourglass.svg') center/60% no-repeat,
+              #ef4444;
+}
+
 .stat-info h3 {
   margin: 0 0 0.25rem 0;
   font-size: 1.75rem;
@@ -70,6 +85,12 @@
 }
 
 .chart-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.chart-card-big {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
@@ -106,5 +127,118 @@
   }
   50% {
     opacity: 0.5;
+  }
+}
+
+.bar-chart {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 1rem 0;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.bar-label {
+  width: 60px;
+  text-align: right;
+  margin-right: 10px;
+  font-weight: bold;
+}
+.bar {
+  background: #4e73df;
+  height: 24px;
+  min-width: 20px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: width 0.3s;
+  position: relative;
+}
+.bar-value {
+  padding: 0 8px;
+  font-size: 14px;
+  position: absolute;
+  right: 0;
+}
+
+/* Chart header with filter */
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+}
+
+.chart-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.status-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-filter label {
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-filter select {
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  background-color: white;
+  color: #374151;
+  font-size: 0.875rem;
+  min-width: 200px;
+  cursor: pointer;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.status-filter select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.status-filter select:hover {
+  border-color: #9ca3af;
+}
+
+/* Charts row layout */
+.charts-row {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.chart-card-half {
+  flex: 1;
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  min-width: 0; /* Allow flexbox to shrink */
+}
+
+/* Responsive design for mobile */
+@media (max-width: 768px) {
+  .charts-row {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .chart-card-half {
+    padding: 1rem;
   }
 }

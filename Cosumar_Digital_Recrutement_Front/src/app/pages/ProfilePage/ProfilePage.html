@@ -1,0 +1,101 @@
+<div class="profile-page">
+  <div class="profile-header">
+    <button class="back-button" (click)="goBack()">
+      <i class="back-icon"></i>
+      <span>Retour au tableau de bord</span>
+    </button>
+    <h1>Mon Profil</h1>
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-container">
+      <div class="loading-spinner"></div>
+      <p>Chargement du profil...</p>
+    </div>
+  } @else if (error()) {
+    <div class="error-container">
+      <div class="error-icon"></div>
+      <h3>Erreur</h3>
+      <p>{{ error() }}</p>
+      <button class="retry-button" (click)="loadUserProfile()">
+        Réessayer
+      </button>
+    </div>
+  } @else if (userProfile()) {
+    <div class="profile-content">
+      <div class="profile-card">
+        <div class="profile-avatar">
+          <div class="avatar-placeholder">
+            <span>{{ userProfile()?.prenom?.charAt(0) }}{{ userProfile()?.nom?.charAt(0) }}</span>
+          </div>
+        </div>
+        
+        <div class="profile-info">
+          <div class="profile-name">
+            <h2>{{ userProfile()?.prenom }} {{ userProfile()?.nom }}</h2>
+            <span class="profile-role">{{ getRoleDisplayName(userProfile()?.role || '') }}</span>
+          </div>
+          
+          <div class="profile-status">
+            <span class="status-badge" [class.active]="userProfile()?.is_active">
+              {{ userProfile()?.is_active ? 'Actif' : 'Inactif' }}
+            </span>
+          </div>
+        </div>
+        
+        <div class="profile-actions">
+          <button class="edit-button" (click)="editProfile()">
+            <i class="edit-icon"></i>
+            <span>Modifier le profil</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="profile-details">
+        <div class="details-section">
+          <h3>Informations personnelles</h3>
+          <div class="details-grid">
+            <div class="detail-item">
+              <label>Nom complet</label>
+              <span>{{ userProfile()?.prenom }} {{ userProfile()?.nom }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Adresse email</label>
+              <span>{{ userProfile()?.email }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-section">
+          <h3>Informations professionnelles</h3>
+          <div class="details-grid">
+            <div class="detail-item">
+              <label>Département</label>
+              <span>{{ getDepartmentDisplayName(userProfile()?.departement || '') }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Rôle</label>
+              <span>{{ getRoleDisplayName(userProfile()?.role || '') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-section">
+          <h3>Informations système</h3>
+          <div class="details-grid">
+            <div class="detail-item">
+              <label>Date d'inscription</label>
+              <span>{{ formatDate(userProfile()?.date_joined) }}</span>
+            </div>
+            <div class="detail-item">
+              <label>Statut du compte</label>
+              <span class="status-text" [class.active]="userProfile()?.is_active">
+                {{ userProfile()?.is_active ? 'Compte actif' : 'Compte inactif' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

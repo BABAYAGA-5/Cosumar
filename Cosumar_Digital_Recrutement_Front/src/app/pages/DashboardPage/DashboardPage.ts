@@ -56,12 +56,16 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.activeMenuItem.set('creation_stage');
     } else if (currentRoute.includes('stages')) {
       this.activeMenuItem.set('stages');
+    } else if (currentRoute.includes('stagiaires')) {
+      this.activeMenuItem.set('stagiaires');
     } else if (currentRoute.includes('candidats')) {
       this.activeMenuItem.set('candidats');
     } else if (currentRoute.includes('utilisateurs')) {
       this.activeMenuItem.set('utilisateurs');
     } else if (currentRoute.includes('domaines')) {
       this.activeMenuItem.set('domaines');
+    } else if (currentRoute.includes('profile')) {
+      this.activeMenuItem.set('profile');
     } else {
       this.activeMenuItem.set('dashboard');
     }
@@ -99,16 +103,18 @@ export class DashboardPage implements OnInit, OnDestroy {
       'dashboard': 'Tableau de bord',
       'creation_stage': 'Création de Stage',
       'stages': 'Gestion des Stages',
+      'stagiaires': 'Liste des Stagiaires',
       'candidats': 'Gestion des Candidats',
       'utilisateurs': 'Gestion des Utilisateurs',
-      'domaines': 'Gestion des Domaines'
+      'domaines': 'Gestion des Domaines',
+      'profile': 'Mon Profil'
     };
     return titles[this.activeMenuItem()] || 'Tableau de bord';
   }
 
   viewProfile(): void {
     this.closeUserMenu();
-    this.profileView.emit();
+    this.router.navigate(['/dashboardpage/profile']);
   }
 
   editProfile(): void {

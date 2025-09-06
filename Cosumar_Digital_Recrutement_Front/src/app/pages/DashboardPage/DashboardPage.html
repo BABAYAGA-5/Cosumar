@@ -44,9 +44,9 @@
             }
           </a>
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'candidats'" [attr.data-tooltip]="'Candidats'">
-          <a routerLink="/dashboardpage/candidats" (click)="setActiveMenuItem('candidats')">
-            <i class="icon candidats-icon"></i>
+        <li class="nav-item" [class.active]="activeMenuItem() === 'stagiaires'" [attr.data-tooltip]="'Stagiaires'">
+          <a routerLink="/dashboardpage/stagiaires" (click)="setActiveMenuItem('stagiaires')">
+            <i class="icon stagiaires-icon"></i>
             @if (!isSidebarCollapsed()) {
               <span class="sidebar-text">Candidats</span>
             }
@@ -110,7 +110,7 @@
                 <li>
                   <button (click)="viewProfile()" class="dropdown-item">
                     <i class="profile-icon"></i>
-                    <span>View Profile</span>
+                    <span>Voir Profil</span>
                   </button>
                 </li>
                 <li>

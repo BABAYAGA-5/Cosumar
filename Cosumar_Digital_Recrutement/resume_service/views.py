@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from rest_framework import status
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import os
 import filetype
 from .PDF import extract_cv_data, create_pdf_from_docx_template_xml, create_docx_from_template_xml, convert_docx_bytes_to_pdf_bytes
@@ -354,7 +355,7 @@ def chercher_stagiaires(request):
             Q(full_name__icontains=search_query)
         ).values(
             'matricule', 'nom', 'prenom', 'date_naissance', 'email'
-        ).order_by('nom', 'prenom')[:10]
+        ).order_by('nom', 'prenom')[:25]
         
         return Response(list(stagiaires), status=status.HTTP_200_OK)
         
@@ -843,3 +844,238 @@ def upload_stage_document(request, stage_id):
         )
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_all_stagiaires(request):
+    """Get paginated stagiaires for admin/admin_rh users"""
+    try:
+        # Get pagination parameters
+        page_number = request.GET.get('page', 1)
+        page_size = int(request.GET.get('page_size', 25))
+        
+        # Get all non-deleted stagiaires ordered by creation date
+        stagiaires_queryset = Stagiaire.objects.filter(deleted=False).order_by('date_creation')
+        
+        # Create paginator
+        paginator = Paginator(stagiaires_queryset, page_size)
+        
+        try:
+            stagiaires_page = paginator.page(page_number)
+        except PageNotAnInteger:
+            # If page is not an integer, deliver first page
+            stagiaires_page = paginator.page(1)
+        except EmptyPage:
+            # If page is out of range, deliver last page
+            stagiaires_page = paginator.page(paginator.num_pages)
+        
+        # Build response data
+        stagiaires_data = []
+        for stagiaire in stagiaires_page:
+            # Get latest stage for this stagiaire
+            latest_stage = Stage.objects.filter(stagiaire=stagiaire).order_by('-created_at').first()
+            
+            stagiaires_data.append({
+                'matricule': stagiaire.matricule,
+                'nom': stagiaire.nom,
+                'prenom': stagiaire.prenom,
+                'email': stagiaire.email,
+                'num_tel': stagiaire.num_tel,
+                'date_naissance': stagiaire.date_naissance,
+                'created_at': stagiaire.date_creation,
+                'updated_at': stagiaire.date_creation,  # Using date_creation since there's no updated field
+                'latest_stage_status': latest_stage.statut if latest_stage else None,
+                'latest_stage_nature': latest_stage.nature if latest_stage else None,
+                'has_active_stage': latest_stage is not None
+            })
+        
+        # Return paginated response
+        return Response({
+            'results': stagiaires_data,
+            'count': paginator.count,
+            'page': stagiaires_page.number,
+            'page_size': page_size,
+            'total_pages': paginator.num_pages,
+            'has_next': stagiaires_page.has_next(),
+            'has_previous': stagiaires_page.has_previous(),
+            'next_page_number': stagiaires_page.next_page_number() if stagiaires_page.has_next() else None,
+            'previous_page_number': stagiaires_page.previous_page_number() if stagiaires_page.has_previous() else None
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"Get stagiaires error: {str(e)}")
+        return Response({'error': 'Erreur lors de la récupération des stagiaires'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+
+@csrf_exempt
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def stats_counts(request):
+    """
+    Retourne le nombre de sujets, stagiaires et candidatures (stages).
+    Ajoute le nombre de stagiaires avec un stage terminé pour chaque année des 5 dernières années.
+    Génère automatiquement les statistiques pour tous les départements disponibles.
+    """
+    try:
+        
+        # Get all department choices dynamically from the model
+        department_choices = [choice[0] for choice in Utilisateur._meta.get_field('departement').choices]
+        
+        # Generate statistics for all departments dynamically
+        departements_stats = {}
+        for dept_code in department_choices:
+            count = Stage.objects.filter(
+                deleted=False,
+                statut='stage_en_cours',
+                sujet__created_by__departement=dept_code
+            ).count()
+            
+            # Create a readable name for the department
+            dept_name = dict(Utilisateur._meta.get_field('departement').choices).get(dept_code, dept_code)
+            departements_stats[f"nb_stagiaires_dep_{dept_code}"] = {
+                "count": count,
+                "department_name": dept_name,
+                "department_code": dept_code
+            }
+
+        nb_sujets = Sujet.objects.filter(deleted=False).count()
+        nb_stagiaires = Stagiaire.objects.filter(deleted=False).count()
+        nb_stage_en_cours = Stage.objects.filter(
+            deleted=False,
+            statut='stage_en_cours'
+        ).count()
+        nb_stage_en_attante_vm = Stage.objects.filter(
+            deleted=False,
+            statut='en_attente_visite_medicale'
+        ).count() 
+        
+        # Calcul du nombre de stagiaires avec un stage "Terminé" pour chaque année des 5 dernières années
+        current_year = datetime.now().year
+        stagiaires_termine_par_annee = []
+        for year in range(current_year - 4, current_year + 1):
+            count = Stagiaire.objects.filter(
+                deleted=False,
+                stages__statut='termine',
+                stages__date_fin__year=year
+            ).distinct().count()
+            stagiaires_termine_par_annee.append({
+                "annee": year,
+                "nb_stagiaires_termine": count
+            })
+
+        # Get stage nature choices dynamically
+        stage_nature_choices = [choice[0] for choice in Stage._meta.get_field('nature').choices]
+        
+        # Generate statistics for all stage natures dynamically
+        stages_par_nature = {}
+        for nature_code in stage_nature_choices:
+            count = Stage.objects.filter(
+                deleted=False,
+                nature=nature_code,
+                date_debut__year=current_year
+            ).count()
+            
+            # Create a readable name for the nature
+            nature_name = dict(Stage._meta.get_field('nature').choices).get(nature_code, nature_code)
+            stages_par_nature[f"nb_{nature_code}"] = {
+                "count": count,
+                "nature_name": nature_name,
+                "nature_code": nature_code
+            }
+
+        # Get stage status choices dynamically
+        stage_status_choices = [choice[0] for choice in Stage._meta.get_field('statut').choices]
+        
+        # Generate stages par département with status breakdown
+        stages_par_departement = {}
+        for dept_code in department_choices:
+            dept_name = dict(Utilisateur._meta.get_field('departement').choices).get(dept_code, dept_code)
+            
+            # Get total count for this department
+            total_count = Stage.objects.filter(
+                deleted=False,
+                sujet__created_by__departement=dept_code
+            ).count()
+            
+            # Get count by status for this department
+            status_breakdown = {}
+            for status_code in stage_status_choices:
+                status_count = Stage.objects.filter(
+                    deleted=False,
+                    statut=status_code,
+                    sujet__created_by__departement=dept_code
+                ).count()
+                
+                status_name = dict(Stage._meta.get_field('statut').choices).get(status_code, status_code)
+                status_breakdown[status_code] = {
+                    "count": status_count,
+                    "status_name": status_name
+                }
+            
+            stages_par_departement[dept_code] = {
+                "department_name": dept_name,
+                "department_code": dept_code,
+                "total_stages": total_count,
+                "status_breakdown": status_breakdown
+            }
+
+        # Prepare response with both old format (for backward compatibility) and new dynamic format
+        response_data = {
+            "nb_sujets": nb_sujets,
+            "nb_stagiaires": nb_stagiaires,
+            "nb_stage_en_cours": nb_stage_en_cours,
+            "nb_stage_en_attante_vm": nb_stage_en_attante_vm,
+            "stagiaires_termine_par_annee": stagiaires_termine_par_annee,
+            
+            # Dynamic department statistics
+            "departements_stats": departements_stats,
+            "available_departments": [
+                {
+                    "code": choice[0],
+                    "name": choice[1]
+                } for choice in Utilisateur._meta.get_field('departement').choices
+            ],
+            
+            # Dynamic stage nature statistics
+            "stages_par_nature": stages_par_nature,
+            "available_stage_natures": [
+                {
+                    "code": choice[0],
+                    "name": choice[1]
+                } for choice in Stage._meta.get_field('nature').choices
+            ],
+            
+            # Stages par département with status breakdown
+            "stages_par_departement": stages_par_departement,
+            "available_stage_statuses": [
+                {
+                    "code": choice[0],
+                    "name": choice[1]
+                } for choice in Stage._meta.get_field('statut').choices
+            ]
+        }
+        
+        # Add backward compatibility for existing frontend code
+        if departements_stats:
+            # Add individual department counts for backward compatibility
+            for dept_key, dept_data in departements_stats.items():
+                response_data[dept_key] = dept_data["count"]
+                
+        if stages_par_nature:
+            # Add individual stage nature counts for backward compatibility
+            for nature_key, nature_data in stages_par_nature.items():
+                response_data[nature_key] = nature_data["count"]
+            
+            # Map to old field names for backward compatibility
+            response_data["nb_stage"] = stages_par_nature.get("nb_stage_observation", {}).get("count", 0)
+            response_data["nb_alternance"] = stages_par_nature.get("nb_stage_application", {}).get("count", 0)
+            response_data["nb_pfe"] = stages_par_nature.get("nb_pfe", {}).get("count", 0)
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            "error": f"Erreur lors du calcul des statistiques: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

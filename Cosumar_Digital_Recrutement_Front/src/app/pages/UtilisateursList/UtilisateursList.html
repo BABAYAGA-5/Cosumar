@@ -1,0 +1,237 @@
+<div class="utilisateurs-list">
+  <h2>Liste des Utilisateurs</h2>
+  
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <div class="filters-container">
+      <div class="search-container">
+        <input 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (input)="onSearchInput()"
+          placeholder="Rechercher par nom, prénom ou email..."
+          class="search-input">
+        <div class="search-icon"></div>
+      </div>
+      
+      <div class="filter-selects">
+        <select [(ngModel)]="selectedRole" (change)="onFilterChange()" class="filter-select">
+          @for (option of roleOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <select [(ngModel)]="selectedDepartment" (change)="onFilterChange()" class="filter-select">
+          @for (option of departmentOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <select [(ngModel)]="selectedStatus" (change)="onFilterChange()" class="filter-select">
+          @for (option of statusOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <button (click)="clearFilters()" class="clear-filters-btn" title="Effacer tous les filtres">
+          <span class="clear-icon"></span>
+          Effacer
+        </button>
+      </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+@if (editingUser) {
+  <div class="modal-overlay" (click)="cancelEditing()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Modifier l'utilisateur</h3>
+        <button class="close-btn" (click)="cancelEditing()">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="user-info-section">
+          <h4>Informations utilisateur</h4>
+          <div class="readonly-info">
+            <div class="info-item">
+              <label>Nom:</label>
+              <span>{{ editingUser?.nom }}</span>
+            </div>
+            <div class="info-item">
+              <label>Prénom:</label>
+              <span>{{ editingUser?.prenom }}</span>
+            </div>
+            <div class="info-item">
+              <label>Email:</label>
+              <span>{{ editingUser?.email }}</span>
+            </div>
+            <div class="info-item">
+              <label>Département:</label>
+              <span>{{ getDepartementDisplayName(editingUser?.departement) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="editable-section">
+          <h4>Paramètres modifiables</h4>
+          <form class="edit-form">
+            <div class="form-group">
+              <label for="role">Rôle:</label>
+              <select 
+                id="role" 
+                name="role"
+                [(ngModel)]="editForm.role" 
+                class="form-control"
+                (change)="onRoleChange($event)">
+                @for (option of getRoleOptionsForUser(editingUser); track option.value) {
+                  <option [value]="option.value">{{ option.label }}</option>
+                }
+              </select>
+              <small>Current value: {{ editForm.role }}</small>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <label class="checkbox-label">
+                <input 
+                  type="checkbox" 
+                  name="is_active"
+                  [(ngModel)]="editForm.is_active"
+                  (change)="onActiveChange($event)">
+                <span class="checkmark"></span>
+                Utilisateur actif
+              </label>
+              <small>Current value: {{ editForm.is_active }}</small>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="cancelEditing()">
+          Annuler
+        </button>
+        <button class="btn btn-primary" (click)="saveUserChanges()" [disabled]="isSaving">
+          {{ isSaving ? 'Enregistrement...' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}  <!-- Pagination info -->
+  @if (!loading && totalCount > 0) {
+    <div class="pagination-info">
+      Affichage de {{ ((currentPage - 1) * pageSize) + 1 }} à {{ getCurrentPageMax() }} sur {{ totalCount }} utilisateurs
+    </div>
+  }
+  
+  @if (loading) {
+    <div class="loading-spinner">
+      <span class="spinner"></span> Chargement...
+    </div>
+  }
+  @if (error) {
+    <div class="error">{{ error }}</div>
+  }
+  @if (!loading && utilisateurs.length) {
+    <div class="table-container">
+      <div class="scroll-hint">← Faites glisser pour voir plus →</div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nom</th>
+            <th>Prénom</th>
+            <th>Email</th>
+            <th>Rôle</th>
+            <th>Département</th>
+            <th>Statut</th>
+            <th>Date de création</th>
+            <th>Dernière modification</th>
+            @if (isAdmin()) {
+              <th>Actions</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of utilisateurs; track user.id; let i = $index) {
+            <tr>
+              <td>{{ ((currentPage - 1) * pageSize) + i + 1 }}</td>
+              <td><strong>{{ user.nom }}</strong></td>
+              <td>{{ user.prenom }}</td>
+              <td class="email-cell">
+                <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+              </td>
+              <td class="role-cell">
+                <span class="role-badge" [ngClass]="{
+                  'admin': user.role === 'admin',
+                  'admin-rh': user.role === 'admin_rh',
+                  'rh': user.role === 'utilisateur_rh',
+                  'user': user.role === 'utilisateur'
+                }">{{ getRoleDisplayName(user.role) }}</span>
+              </td>
+              <td>{{ getDepartementDisplayName(user.departement) }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="{ 'active': user.is_active, 'inactive': !user.is_active }">
+                  {{ user.is_active ? 'Actif' : 'Inactif' }}
+                </span>
+              </td>
+              <td>{{ user.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ user.updated_at | date:'dd/MM/yyyy HH:mm' }}</td>
+              @if (isAdmin()) {
+                <td class="actions-cell">
+                  @if (canEditRole(user)) {
+                    <button class="modify-btn" (click)="startEditing(user)">
+                      Modifier
+                    </button>
+                  } @else {
+                    <span class="no-action">-</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+  
+  <!-- Pagination controls -->
+  @if (!loading && totalPages > 1) {
+    <div class="pagination">
+      <button class="pagination-btn" [disabled]="!hasPrevious" (click)="previousPage()">
+        ← Précédent
+      </button>
+      
+      @if (currentPage > 3) {
+        <button class="pagination-btn" (click)="goToPage(1)">1</button>
+      }
+      @if (currentPage > 4) {
+        <span class="pagination-dots">...</span>
+      }
+      
+      @for (page of getPageNumbers(); track page) {
+        <button 
+          class="pagination-btn" 
+          [class.active]="page === currentPage"
+          (click)="goToPage(page)">
+          {{ page }}
+        </button>
+      }
+      
+      @if (currentPage < totalPages - 3) {
+        <span class="pagination-dots">...</span>
+      }
+      @if (currentPage < totalPages - 2) {
+        <button class="pagination-btn" (click)="goToPage(totalPages)">{{ totalPages }}</button>
+      }
+      
+      <button class="pagination-btn" [disabled]="!hasNext" (click)="nextPage()">
+        Suivant →
+      </button>
+    </div>
+  }
+  
+  @if (!loading && !utilisateurs.length) {
+    <div>Aucun utilisateur trouvé.</div>
+  }
+</div>

@@ -1,62 +1,95 @@
 <div class="dashboard-home">
   <div class="stats-grid">
     <div class="stat-card">
-      <div class="stat-icon postes-stat"></div>
+      <div class="stat-icon sujets-stat"></div>
       <div class="stat-info">
-        @if (isLoading()) {
+        @if (isLoadingStats()) {
           <h3 class="loading">...</h3>
         } @else {
-          <h3>{{ totalPostes() }}</h3>
+          <h3>{{ totalSujets() }}</h3>
         }
-        <p>Postes Actifs</p>
+        <p>Sujets</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon stagiaires-stat"></div>
+      <div class="stat-info">
+        @if (isLoadingStats()) {
+          <h3 class="loading">...</h3>
+        } @else {
+          <h3>{{ totalStagiaires() }}</h3>
+        }
+        <p>Stagiaires </p>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-icon candidatures-stat"></div>
       <div class="stat-info">
-        @if (isLoading()) {
+        @if (isLoadingStats()) {
           <h3 class="loading">...</h3>
         } @else {
-          <h3>{{ totalCandidatures() }}</h3>
+          <h3>{{ totalnb_stage_en_cours() }}</h3>
         }
-        <p>Candidatures Reçues</p>
+        <p>Stages en cours</p>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon utilisateurs-stat"></div>
+      <div class="stat-icon attente-stat"></div>
       <div class="stat-info">
         @if (isLoading()) {
           <h3 class="loading">...</h3>
         } @else {
-          <h3>{{ totalUtilisateurs() }}</h3>
+          <h3>{{ totalnb_stage_en_attante_vm() }}</h3>
         }
-        <p>Utilisateurs Actifs</p>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon candidatures-stat"></div>
-      <div class="stat-info">
-        @if (isLoading()) {
-          <h3 class="loading">...</h3>
-        } @else {
-          <h3>{{ pendingCandidatures() }}</h3>
-        }
-        <p>En Attente</p>
+        <p>En Attente de visite médicale</p>
       </div>
     </div>
   </div>
   
   <div class="charts-section">
+    
     <div class="chart-card">
-      <h3>Évolution des Candidatures</h3>
-      <div class="chart-placeholder">
-        <p>Graphique des candidatures par mois</p>
+    <div style="width:600px; height:400px; margin:auto;" *ngIf="stagiairesTermineParAnnee().length > 0">
+  <canvas baseChart
+          [data]="lineData()"
+          [type]="lineType"
+          [options]="lineOptions">
+  </canvas>
+</div>
+</div>
+     
+
+    <div class="chart-card">
+      <div *ngIf="!isLoadingStats()" style="width:400px; height:400px; margin:auto;">
+  <canvas baseChart
+          [data]="pieData()"
+          [type]="pieType"
+          [options]="pieOptions">
+  </canvas>
+</div>
+    </div>
+  </div>
+  <br>
+  <br>
+  <!-- Charts in one line: Stagiaires par département and Stages par département -->
+  <div class="charts-row">
+    <div class="chart-card-half">
+      <div style="width:100%; height:400px; margin:auto;">
+        <canvas baseChart
+                [data]="barData()"
+                [type]="barType"
+                [options]="barOptions">
+        </canvas>
       </div>
     </div>
-    <div class="chart-card">
-      <h3>Répartition par Département</h3>
-      <div class="chart-placeholder">
-        <p>Graphique des postes par département</p>
+    
+    <div class="chart-card-half">
+      <div style="width:100%; height:400px; margin:auto;">
+        <canvas baseChart
+                [data]="departmentStagesBarData()"
+                [type]="departmentStagesBarType"
+                [options]="departmentStagesBarOptions">
+        </canvas>
       </div>
     </div>
   </div>

@@ -5,6 +5,9 @@ import { Dashboard } from './pages/Dashboard/Dashboard';
 import { CreationStage } from './pages/CreationStage/CreationStage';
 import { ConsultationStage } from './pages/ConsultationStage/ConsultationStage';
 import { StageDetails } from './pages/StageDetails/StageDetails';
+import { UtilisateursList } from './pages/UtilisateursList/UtilisateursList';
+import { StagiairesList } from './pages/StagiairesList/StagiairesList';
+import { ProfilePage } from './pages/ProfilePage/ProfilePage';
 
 export const routes: Routes = [
   { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -16,7 +19,9 @@ export const routes: Routes = [
       { path: 'creationstage', component: CreationStage },
       { path: 'stages', component: ConsultationStage },
       { path: 'stage/:id', component: StageDetails },
-      //{ path: 'utilisateurs', component: Utilisateurs },
+      { path: 'utilisateurs', component: UtilisateursList },
+      { path: 'stagiaires', component: StagiairesList },
+      { path: 'profile', component: ProfilePage },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

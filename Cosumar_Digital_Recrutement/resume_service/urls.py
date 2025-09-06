@@ -4,7 +4,7 @@ from . import views
 urlpatterns = [
     path('upload_pdf/', views.upload_pdf, name='upload_pdf'),
     path('domaines/', views.domaines, name='domaines'),
-    path('dashboard/stats/', views.dashboard_stats, name='dashboard_stats'),
+    path('stats_counts/', views.stats_counts, name='stats_counts'),
     path('scan_cin/', views.scan_cin, name='scan_cin'),
     path('enregistrer_stagiaire/', views.enregistrer_stagiaire, name='enregistrer_stagiaire'),
     path('creer_stage/', views.creer_stage, name='creer_stage'),
@@ -18,4 +18,5 @@ urlpatterns = [
     path('get_cin/<str:matricule>/', views.get_cin, name='get_cin'),
     path('get_stage_document/<str:stage_id>/<str:document_type>/', views.get_stage_document, name='get_stage_document'),
     path('upload_stage_document/<str:stage_id>/', views.upload_stage_document, name='upload_stage_document'),
+    path('stagiaires/', views.get_all_stagiaires, name='get_all_stagiaires'),
 ]
