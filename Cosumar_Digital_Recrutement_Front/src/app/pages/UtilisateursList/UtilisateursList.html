@@ -117,7 +117,9 @@
       </div>
     </div>
   </div>
-}  <!-- Pagination info -->
+}
+
+<!-- Pagination info -->
   @if (!loading && totalCount > 0) {
     <div class="pagination-info">
       Affichage de {{ ((currentPage - 1) * pageSize) + 1 }} à {{ getCurrentPageMax() }} sur {{ totalCount }} utilisateurs
@@ -134,7 +136,6 @@
   }
   @if (!loading && utilisateurs.length) {
     <div class="table-container">
-      <div class="scroll-hint">← Faites glisser pour voir plus →</div>
       <table>
         <thead>
           <tr>
@@ -159,7 +160,7 @@
               <td><strong>{{ user.nom }}</strong></td>
               <td>{{ user.prenom }}</td>
               <td class="email-cell">
-                <a href="mailto:{{ user.email }}">{{ user.email }}</a>
+                <a href="mailto:{{ user.email }}"><strong>{{ user.email }}</strong></a>
               </td>
               <td class="role-cell">
                 <span class="role-badge" [ngClass]="{
@@ -234,4 +235,3 @@
   @if (!loading && !utilisateurs.length) {
     <div>Aucun utilisateur trouvé.</div>
   }
-</div>

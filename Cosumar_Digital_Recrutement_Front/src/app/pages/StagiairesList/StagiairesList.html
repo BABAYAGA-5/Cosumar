@@ -1,6 +1,54 @@
 <div class="stagiaires-list">
   <h2>Liste des Stagiaires</h2>
   
+  <!-- Filters Section -->
+  <div class="filters-section">
+    <div class="filters-container">
+      <div class="search-container">
+        <input 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (input)="onSearchInput()"
+          placeholder="Rechercher par matricule, nom, prénom ou email..."
+          class="search-input">
+        <div class="search-icon"></div>
+      </div>
+      
+      <div class="filter-selects">
+        <select [(ngModel)]="selectedHasStage" (change)="onHasStageChange()" class="filter-select">
+          @for (option of hasStageOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <select 
+          [(ngModel)]="selectedStageStatus" 
+          (change)="onFilterChange()" 
+          class="filter-select"
+          [disabled]="!areStageFiltersEnabled()">
+          @for (option of stageStatusOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <select 
+          [(ngModel)]="selectedStageNature" 
+          (change)="onFilterChange()" 
+          class="filter-select"
+          [disabled]="!areStageFiltersEnabled()">
+          @for (option of stageNatureOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        
+        <button (click)="clearFilters()" class="clear-filters-btn" title="Effacer tous les filtres">
+          <span class="clear-icon"></span>
+          Effacer
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <!-- Pagination info -->
   @if (!loading && totalCount > 0) {
     <div class="pagination-info">
@@ -18,7 +66,6 @@
   }
   @if (!loading && stagiaires.length) {
     <div class="table-container">
-      <div class="scroll-hint">← Faites glisser pour voir plus →</div>
       <table>
         <thead>
           <tr>
@@ -32,7 +79,6 @@
             <th>Stage Actuel</th>
             <th>Statut du Stage</th>
             <th>Date de Création</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -76,13 +122,6 @@
                 }
               </td>
               <td>{{ stagiaire.created_at | date:'dd/MM/yyyy HH:mm' }}</td>
-              <td>
-                <button class="action-btn" title="Voir le profil">👁️</button>
-                <button class="action-btn" title="Modifier">✏️</button>
-                @if (stagiaire.has_active_stage) {
-                  <button class="action-btn" title="Voir les stages">📋</button>
-                }
-              </td>
             </tr>
           }
         </tbody>
@@ -130,3 +169,4 @@
     <div>Aucun stagiaire trouvé.</div>
   }
   
+</div>

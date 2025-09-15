@@ -22,6 +22,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 import os
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
+from resume_service.decorators import allow_roles, admin_required, admin_or_rh_required, exclude_utilisateur_role
 
 def get_private_key():
     try:
@@ -138,6 +139,7 @@ def test(request):
 
 @csrf_exempt
 @api_view(['GET'])
+@admin_required
 def get_all_utilisateurs(request):
     """Get paginated utilisateurs for admin/admin_rh users with filtering support"""
     try:

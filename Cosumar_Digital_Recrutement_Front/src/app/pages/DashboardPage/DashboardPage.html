@@ -28,14 +28,16 @@
             }
           </a>
         </li>
-        <li class="nav-item" [class.active]="activeMenuItem() === 'creation_stage'" [attr.data-tooltip]="'Création de Stage'">
-          <a routerLink="/dashboardpage/creationstage" (click)="setActiveMenuItem('creation_stage')">
-            <i class="icon creation_stage-icon"></i>
-            @if (!isSidebarCollapsed()) {
-              <span class="sidebar-text">Création de Stage</span>
-            }
-          </a>
-        </li>
+        @if (userRole() !== 'utilisateur' && userRole() !== 'responsable_de_service') {
+          <li class="nav-item" [class.active]="activeMenuItem() === 'creation_stage'" [attr.data-tooltip]="'Création de Stage'">
+            <a routerLink="/dashboardpage/creationstage" (click)="setActiveMenuItem('creation_stage')">
+              <i class="icon creation_stage-icon"></i>
+              @if (!isSidebarCollapsed()) {
+                <span class="sidebar-text">Création de Stage</span>
+              }
+            </a>
+          </li>
+        }
         <li class="nav-item" [class.active]="activeMenuItem() === 'stages'" [attr.data-tooltip]="'Stages'">
           <a routerLink="/dashboardpage/stages" (click)="setActiveMenuItem('stages')">
             <i class="icon stages-icon"></i>
@@ -62,14 +64,6 @@
             </a>
           </li>
         }
-        <li class="nav-item" [class.active]="activeMenuItem() === 'domaines'" [attr.data-tooltip]="'Domaines'">
-          <a routerLink="/dashboardpage/domaines" (click)="setActiveMenuItem('domaines')">
-            <i class="icon domaines-icon"></i>
-            @if (!isSidebarCollapsed()) {
-              <span class="sidebar-text">Domaines</span>
-            }
-          </a>
-        </li>
       </ul>
     </nav>
   </aside>

@@ -52,6 +52,22 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   private updateActiveMenuFromRoute(): void {
     const currentRoute = this.router.url;
+    const userRole = this.userRole();
+    
+    // Check if user with 'utilisateur' or 'responsable_de_service' role is trying to access forbidden routes
+    if (userRole === 'utilisateur' || userRole === 'responsable_de_service') {
+      const forbiddenRoutes = ['creationstage', 'domaines', 'utilisateurs'];
+      const isForbiddenRoute = forbiddenRoutes.some(route => currentRoute.includes(route));
+      
+      if (isForbiddenRoute) {
+        // Redirect to dashboard for forbidden routes
+        this.router.navigate(['/dashboardpage/dashboard']);
+        this.activeMenuItem.set('dashboard');
+        return;
+      }
+    }
+    
+    // Set active menu item based on current route
     if (currentRoute.includes('creationstage')) {
       this.activeMenuItem.set('creation_stage');
     } else if (currentRoute.includes('stages')) {
@@ -80,8 +96,35 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   setActiveMenuItem(item: string): void {
+    // Check if user has permission to access this route
+    if (!this.canAccessRoute(item)) {
+      // Redirect to dashboard if user doesn't have permission
+      this.router.navigate(['/dashboardpage/dashboard']);
+      this.activeMenuItem.set('dashboard');
+      this.closeUserMenu();
+      return;
+    }
+    
     this.activeMenuItem.set(item);
     this.closeUserMenu();
+  }
+
+  private canAccessRoute(route: string): boolean {
+    const userRole = this.userRole();
+    
+    // Users with 'utilisateur' or 'responsable_de_service' role can only access these routes
+    if (userRole === 'utilisateur' || userRole === 'responsable_de_service') {
+      const allowedRoutes = ['dashboard', 'stages', 'stagiaires', 'profile'];
+      return allowedRoutes.includes(route);
+    }
+    
+    // Admin users can access utilisateurs page
+    if (route === 'utilisateurs' && userRole !== 'admin') {
+      return false;
+    }
+    
+    // Other roles can access all routes except restricted ones
+    return true;
   }
 
   toggleUserMenu(): void {

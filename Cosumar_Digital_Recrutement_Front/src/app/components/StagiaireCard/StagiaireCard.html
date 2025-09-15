@@ -17,6 +17,18 @@
       </div>
     }
 
+    @if (stagiaire.introduit_par) {
+      <div class="introducer-section">
+        <span class="introducer-label">Introduit par:</span>
+        <p class="introducer-text">
+          {{ stagiaire.introduit_par.prenom }} {{ stagiaire.introduit_par.nom }}
+          @if (stagiaire.introduit_par.departement) {
+            <span class="department-text">({{ getDepartmentText(stagiaire.introduit_par.departement) }})</span>
+          }
+        </p>
+      </div>
+    }
+
     @if (stagiaire.date_debut && stagiaire.date_fin) {
       <div class="dates-section">
         <div class="date-item">

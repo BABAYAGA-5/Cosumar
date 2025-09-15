@@ -10,11 +10,16 @@ class Utilisateur(models.Model):
     token = models.CharField(max_length=256, blank=True, null=True)
     validite_token = models.DateTimeField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    capacite_restante = models.IntegerField(default=0)
+    capacite_cache_restante = models.IntegerField(default=0)
+    capacite = models.IntegerField(default=2)
+    capacite_cache = models.IntegerField(default=2)
     role = models.CharField(max_length=50, choices=[
     ('admin', 'Administrateur'),
     ('admin_rh', 'Admin RH'),
     ('utilisateur_rh', 'Utilisateur RH'),
     ('utilisateur', 'Utilisateur'),
+    ('responsable_de_service', 'Responsable de Service'),
     ], default='utilisateur_rh')
 
     departement = models.CharField(max_length=100, choices=[

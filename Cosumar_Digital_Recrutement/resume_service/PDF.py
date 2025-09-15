@@ -443,13 +443,86 @@ def create_docx_from_template_xml(docx_path: str, replacements: Dict[str, str]) 
                     if alt_placeholders:
                         print(f"🔍 Debug: Found alternative placeholders: {alt_placeholders}")
                     
-                    # Replace placeholders in XML content
+                    # Check for SIGNATURE_ENCADRANT specifically in different formats
+                    signature_variations = [
+                        '«SIGNATURE_ENCADRANT»',
+                        '<<SIGNATURE_ENCADRANT>>',
+                        'SIGNATURE_ENCADRANT',
+                        'signature_encadrant',
+                        'Signature_Encadrant'
+                    ]
+                    
+                    print(f"🔍 Debug: Checking for SIGNATURE_ENCADRANT variations:")
+                    for variation in signature_variations:
+                        count = xml_content.count(variation)
+                        if count > 0:
+                            print(f"   ✅ Found '{variation}': {count} times")
+                        else:
+                            print(f"   ❌ Not found: '{variation}'")
+                    
+                    # Show a sample of the XML content to see the structure
+                    xml_lines = xml_content.split('\n')
+                    print(f"🔍 Debug: XML content sample (first 10 lines):")
+                    for i, line in enumerate(xml_lines[:10]):
+                        print(f"   {i+1}: {line[:100]}...")
+                        
+                    # Look for any text that contains "SIGNATURE" or "ENCADRANT"
+                    signature_matches = re.findall(r'[^>]*(?:SIGNATURE|ENCADRANT)[^<]*', xml_content, re.IGNORECASE)
+                    if signature_matches:
+                        print(f"🔍 Debug: Found text containing SIGNATURE/ENCADRANT:")
+                        for match in signature_matches[:5]:  # Show first 5 matches
+                            print(f"   '{match}'")
+                    
+                    # Replace placeholders in XML content with special formatting
                     replaced_count = 0
+                    
+                    # First, try to consolidate split placeholders in the XML
+                    # This handles cases where placeholders are split across multiple <w:t> elements
+                    print(f"🔄 Debug: Attempting to consolidate split placeholders...")
+                    
+                    # Look for patterns where placeholders might be split
+                    # Pattern: text ending with part of placeholder + closing tag + opening tag + rest of placeholder
+                    split_patterns = [
+                        (r'(«[^»]*)</w:t>([^<]*<w:t[^>]*>)([^<]*»)', r'\1\3'),  # «PART</w:t>...<w:t>REST»
+                        (r'(«[A-Z_]*)</w:t>([^<]*<w:t[^>]*>)([A-Z_]*»)', r'\1\3'),  # More specific pattern
+                    ]
+                    
+                    for pattern, replacement in split_patterns:
+                        matches = re.findall(pattern, xml_content)
+                        if matches:
+                            print(f"🔍 Debug: Found {len(matches)} split placeholder patterns")
+                            xml_content = re.sub(pattern, replacement, xml_content)
+                    
+                    # Check again after consolidation
+                    found_placeholders_after = re.findall(r'«[^»]+»', xml_content)
+                    print(f"🔍 Debug: Placeholders after consolidation: {found_placeholders_after}")
+                    
                     for placeholder, replacement in replacements.items():
                         original_count = xml_content.count(placeholder)
                         if original_count > 0:
-                            xml_content = xml_content.replace(placeholder, replacement)
-                            print(f"✅ Replaced {original_count} instances of {placeholder} with '{replacement}' in document XML")
+                            # Special handling for SIGNATURE_ENCADRANT to make it bold
+                            if placeholder == '«SIGNATURE_ENCADRANT»':
+                                # Use regex to find and replace within w:t tags with bold formatting
+                                pattern = r'(<w:t[^>]*>)([^<]*' + re.escape(placeholder) + r'[^<]*)(<\/w:t>)'
+                                
+                                def make_bold_replacement(match):
+                                    opening_tag = match.group(1)  # <w:t> or <w:t xml:space="preserve">
+                                    text_content = match.group(2)  # Text containing placeholder
+                                    closing_tag = match.group(3)  # </w:t>
+                                    
+                                    # Split the text around the placeholder
+                                    before_placeholder = text_content.split(placeholder)[0]
+                                    after_placeholder = ''.join(text_content.split(placeholder)[1:])
+                                    
+                                    # Create the replacement with bold formatting
+                                    # Structure: existing_text</w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>BOLD_TEXT</w:t></w:r><w:r><w:t>remaining_text
+                                    return f'{opening_tag}{before_placeholder}</w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t>{replacement}</w:t></w:r><w:r><w:t>{after_placeholder}</w:t>'
+                                
+                                xml_content = re.sub(pattern, make_bold_replacement, xml_content)
+                                print(f"✅ Replaced {original_count} instances of {placeholder} with BOLD '{replacement}' in document XML")
+                            else:
+                                xml_content = xml_content.replace(placeholder, replacement)
+                                print(f"✅ Replaced {original_count} instances of {placeholder} with '{replacement}' in document XML")
                             replaced_count += original_count
                         else:
                             print(f"⚠️ Placeholder {placeholder} not found in document XML")

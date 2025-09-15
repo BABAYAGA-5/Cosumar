@@ -1,15 +1,13 @@
-from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import FileUploadParser
 from django.shortcuts import render
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from rest_framework import status
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.exceptions import ValidationError
 import os
-import filetype
 from .PDF import extract_cv_data, create_pdf_from_docx_template_xml, create_docx_from_template_xml, convert_docx_bytes_to_pdf_bytes
 from resume_service.models import Stage, Stagiaire, Sujet
 from auth_service.models import Utilisateur
@@ -17,6 +15,7 @@ from django.db.models import Count, Q
 from datetime import datetime, timedelta
 from django.db.models import Value, CharField
 from django.db.models.functions import Concat
+from .decorators import allow_roles, admin_required, admin_or_rh_required, exclude_utilisateur_role
 
 # Handle CIN module import with fallback
 try:
@@ -63,6 +62,7 @@ def dashboard_stats(request):
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@exclude_utilisateur_role
 def scan_cin(request):
     try:
         cin_file = request.FILES.get('cin')
@@ -105,6 +105,7 @@ def scan_cin(request):
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@exclude_utilisateur_role
 def enregistrer_stagiaire(request):
     """Save new stagiaire with CIN data only (without creating stage)"""
     try:
@@ -114,6 +115,7 @@ def enregistrer_stagiaire(request):
         date_naissance = request.data.get('date_naissance')
         email = request.data.get('email')
         phone = request.data.get('phone')
+        introduit_par_id = request.data.get('introduit_par_id')
         
         # Required files for new stagiaire
         cin_file = request.FILES.get('cin_file')
@@ -123,6 +125,17 @@ def enregistrer_stagiaire(request):
             return Response({
                 "error": "Nom, prénom, numéro CIN, fichier CIN, email et téléphone sont requis."
             }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate introduit_par_id if provided
+        introduit_par = None
+        if introduit_par_id:
+            try:
+                from auth_service.models import Utilisateur
+                introduit_par = Utilisateur.objects.get(id=introduit_par_id)
+            except Utilisateur.DoesNotExist:
+                return Response({
+                    "error": "L'utilisateur spécifié pour 'introduit par' n'existe pas."
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         # Read CIN file
         cin_bytes = cin_file.read()
@@ -151,7 +164,8 @@ def enregistrer_stagiaire(request):
             date_naissance=parsed_date,
             cin=cin_bytes,
             email=email,
-            num_tel=phone
+            num_tel=phone,
+            introduit_par=introduit_par
         )
 
         return Response({
@@ -167,6 +181,7 @@ def enregistrer_stagiaire(request):
 @csrf_exempt
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@exclude_utilisateur_role
 def creer_stage(request):
     """Create stage for any stagiaire (new or existing)"""
     try:
@@ -178,6 +193,7 @@ def creer_stage(request):
         date_fin = request.data.get('date_fin')
         sujet_id = request.data.get('sujet_id')
         status_stage = request.data.get('status', 'stage_created')
+        introduit_par_id = request.data.get('introduit_par_id')  # Optional introducer user ID
         
         # Required files for stage
         cv_file = request.FILES.get('cv_file')
@@ -191,12 +207,39 @@ def creer_stage(request):
                 "error": "Matricule, CV et informations de stage sont requis."
             }, status=status.HTTP_400_BAD_REQUEST)
 
+        if date_debut > date_fin:
+            return Response({
+                "error": "La date de début doit être antérieure à la date de fin."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         # Check if stagiaire exists
         stagiaire = Stagiaire.objects.filter(matricule=matricule, deleted=False).first()
         if not stagiaire:
             return Response({
                 "error": "Stagiaire non trouvé. Vous devez d'abord créer le stagiaire."
             }, status=status.HTTP_404_NOT_FOUND)
+
+        if Stage.objects.filter(stagiaire=stagiaire, deleted=False, statut__in=['en_attente_visite_medicale', 'en_attente_depot_dossier','en_attente_des_signatures', 'stage_en_cours', 'en_attente_depot_rapport','en_attente_signature_du_rapport_par_l_encadrant']).exists():
+            return Response({
+                "error": "Un stage avec un statut en attente existe déjà pour ce stagiaire."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Capacity validation for the user who brought the stagiaire (introducer)
+        introduit_par_user = None
+        if introduit_par_id:
+            try:
+                introduit_par_user = Utilisateur.objects.get(id=introduit_par_id)
+                
+                # Check if the introducer's capacite_cache_restante is less than capacite_cache
+                if introduit_par_user.capacite_cache_restante >= introduit_par_user.capacite_cache:
+                    return Response({
+                        "error": f"L'utilisateur {introduit_par_user.prenom} {introduit_par_user.nom} a atteint sa capacité maximale de stagiaires introduits ({introduit_par_user.capacite_cache})."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+            except Utilisateur.DoesNotExist:
+                return Response({
+                    "error": "L'utilisateur qui a introduit le stagiaire n'existe pas."
+                }, status=status.HTTP_404_NOT_FOUND)
 
         
 
@@ -221,27 +264,51 @@ def creer_stage(request):
 
         # Get sujet if provided
         sujet = None
+        sujet_creator = None
         if sujet_id:
             try:
                 sujet = Sujet.objects.get(id=sujet_id, deleted=False)
+                sujet_creator = sujet.created_by
+                
+                # Check if the sujet creator's capacite_restante is less than capacite
+                if sujet_creator.capacite_restante >= sujet_creator.capacite:
+                    return Response({
+                        "error": f"L'utilisateur qui a créé le sujet ({sujet_creator.prenom} {sujet_creator.nom}) a atteint sa capacité maximale de sujets ({sujet_creator.capacite})."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                    
             except Sujet.DoesNotExist:
                 return Response({
                     "error": "Sujet sélectionné non trouvé."
                 }, status=status.HTTP_400_BAD_REQUEST)
 
         # Create new stage for the stagiaire
-        stage = Stage.objects.create(
-            stagiaire=stagiaire,
-            nature=nature,
-            date_debut=parsed_date_debut,
-            date_fin=parsed_date_fin,
-            sujet=sujet,
-            cv=cv_file.read() if cv_file else None,
-            convention=convention_file.read() if convention_file else None,
-            assurance=assurance_file.read() if assurance_file else None,
-            lettre_motivation=lettre_motivation_file.read() if lettre_motivation_file else None,
-            statut=statut_stage
-        )
+        try:
+            stage = Stage.objects.create(
+                stagiaire=stagiaire,
+                nature=nature,
+                date_debut=parsed_date_debut,
+                date_fin=parsed_date_fin,
+                sujet=sujet,
+                introduit_par=introduit_par_user,  # Set the introducer
+                cv=cv_file.read() if cv_file else None,
+                convention=convention_file.read() if convention_file else None,
+                assurance=assurance_file.read() if assurance_file else None,
+                lettre_motivation=lettre_motivation_file.read() if lettre_motivation_file else None,
+                statut=statut_stage
+            )
+        except ValidationError as e:
+            return Response({
+                "error": str(e.message) if hasattr(e, 'message') else str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Increment capacities after successful stage creation
+        if introduit_par_user:
+            introduit_par_user.capacite_cache_restante += 1
+            introduit_par_user.save()
+            
+        if sujet_creator:
+            sujet_creator.capacite_restante += 1
+            sujet_creator.save()
 
         # Generate PDF demande de stage from DOCX template
         try:
@@ -274,46 +341,35 @@ def creer_stage(request):
                     '«SERVICE»': '',
                     '«NOM_ENCADRANT»': '',
                     '«DATE_SIGNATURE_ENCADRANT»': '',
+                    '«SIGNATURE_ENCADRANT»': '',
                     '«NOM_RESPONSABLE_SERVICE»': '',
                     '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': '',
                     '«DATE_SIGNATURE_RH»': ''
                 }
                 
-                # Debug: Print all replacements
-                print(f"🔍 Debug: Replacements dictionary:")
-                for key, value in replacements.items():
-                    print(f"  {key} -> {value}")
-                
-                # Define output path for debugging
-                debug_filename = f"{stage.stagiaire.matricule}_demande_stage_{stage.id}.docx"
-                debug_path = os.path.join(settings.BASE_DIR, 'resume_service', 'media', debug_filename)
-                
-                # Generate DOCX from template using XML method
                 filled_docx_bytes = create_docx_from_template_xml(
                     docx_path=docx_template_path,
                     replacements=replacements
                 )
                 
                 if filled_docx_bytes:
-                    # Save DOCX to database
                     stage.demande_de_stage = filled_docx_bytes
+                    
+                    # Convert DOCX to PDF and cache it
+                    try:
+                        pdf_bytes = convert_docx_bytes_to_pdf_bytes(filled_docx_bytes)
+                        if pdf_bytes:
+                            stage.demande_de_stage_pdf = pdf_bytes
+                    except Exception:
+                        pass  # PDF will be generated on-demand if conversion fails
+                    
                     stage.save()
                     
-                    # Save debug copy as DOCX
-                    with open(debug_path, 'wb') as debug_file:
-                        debug_file.write(filled_docx_bytes)
-                    
-                    print(f"✅ DOCX demande de stage generated successfully for matricule: {stage.stagiaire.matricule}")
-                    print(f"📁 Debug copy saved at: {debug_path}")
-                else:
-                    print(f"❌ Failed to generate DOCX from template")
-                    
             else:
-                print(f"⚠️ Template DOCX not found at: {docx_template_path}")
+                pass  # Template not found, skip PDF generation
                 
-        except Exception as pdf_error:
-            print(f"❌ Error generating PDF demande de stage: {str(pdf_error)}")
-            # Don't fail the stage creation if PDF generation fails
+        except Exception:
+            pass  # Don't fail stage creation if PDF generation fails
 
         # Determine success message based on status
         if status_stage == 'dossier_complete':
@@ -342,11 +398,18 @@ def chercher_stagiaires(request):
         search_query = request.GET.get('search', '').strip()
         
         # Search in nom, prenom, matricule fields and concatenated "prenom nom"
+        stagiaires_queryset = Stagiaire.objects.filter(deleted=False)
         
+        # Role-based filtering: users with 'utilisateur' role can only see stagiaires with stages having sujets they created
+        current_user = request.user
+        if hasattr(current_user, 'role') and current_user.role == 'utilisateur':
+            # Only show stagiaires that have stages with sujets created by this user
+            stagiaires_queryset = stagiaires_queryset.filter(
+                stages__sujet__created_by=current_user,
+                stages__sujet__isnull=False
+            ).distinct()
         
-        stagiaires = Stagiaire.objects.filter(
-            deleted=False
-        ).annotate(
+        stagiaires = stagiaires_queryset.annotate(
             full_name=Concat('prenom', Value(' '), 'nom', output_field=CharField())
         ).filter(
             Q(nom__icontains=search_query) |
@@ -432,9 +495,7 @@ def chercher_sujets(request):
             Q(description__icontains=search_query)
         ).values(
             'id', 'titre', 'description'
-        ).order_by('titre')[:10]  # Limit to 10 results
-
-        print(list(sujets))
+        ).order_by('titre')[:10]
 
         return Response(list(sujets), status=status.HTTP_200_OK)
         
@@ -478,8 +539,36 @@ def chercher_stages(request):
         if created_at:
             filters["created_at__icontains"] = created_at
 
+        # Role-based filtering: 
+        # - users with 'utilisateur' role can only see stages with sujets they created
+        # - users with 'responsable_de_service' role can see stages with sujets created by utilisateurs in their same department
+        current_user = request.user
+        if hasattr(current_user, 'role') and current_user.role == 'utilisateur':
+            # Only show stages that have sujets created by this user
+            filters["sujet__created_by"] = current_user
+            # Also ensure the stage has a sujet (not null)
+            filters["sujet__isnull"] = False
+        elif hasattr(current_user, 'role') and current_user.role == 'responsable_de_service':
+            # Show stages where sujet was created by any utilisateur in the same department
+            if current_user.departement:
+                # Get all utilisateurs in the same department
+                from auth_service.models import Utilisateur
+                utilisateurs_meme_departement = Utilisateur.objects.filter(
+                    departement=current_user.departement,
+                    role='utilisateur',
+                    is_active=True
+                )
+                # Filter stages to show only those with sujets created by these utilisateurs
+                filters["sujet__created_by__in"] = utilisateurs_meme_departement
+                # Also ensure the stage has a sujet (not null)
+                filters["sujet__isnull"] = False
+            else:
+                # If no department assigned, only show stages they created (fallback to utilisateur behavior)
+                filters["sujet__created_by"] = current_user
+                filters["sujet__isnull"] = False
+
         # Get stages with all related data
-        stages_queryset = Stage.objects.filter(**filters).select_related('stagiaire', 'sujet').order_by('-created_at')
+        stages_queryset = Stage.objects.filter(**filters).select_related('stagiaire', 'sujet', 'introduit_par').order_by('-created_at')
         
         stages_data = []
         for stage in stages_queryset:
@@ -498,7 +587,14 @@ def chercher_stages(request):
                 'sujet': {
                     'id': stage.sujet.id if stage.sujet else None,
                     'titre': stage.sujet.titre if stage.sujet else None,
-                } if stage.sujet else None
+                } if stage.sujet else None,
+                'introduit_par': {
+                    'id': stage.introduit_par.id if stage.introduit_par else None,
+                    'nom': stage.introduit_par.nom if stage.introduit_par else '',
+                    'prenom': stage.introduit_par.prenom if stage.introduit_par else '',
+                    'email': stage.introduit_par.email if stage.introduit_par else '',
+                    'departement': stage.introduit_par.departement if stage.introduit_par else '',
+                } if stage.introduit_par else None
             }
             stages_data.append(stage_data)
 
@@ -593,6 +689,7 @@ def recuperer_stage(request, stage_id):
                 "id": stage.sujet.id,
                 "titre": stage.sujet.titre,
                 "description": stage.sujet.description,
+                "created_by": stage.sujet.created_by.id if stage.sujet.created_by else None
             } if stage.sujet else None
         }
 
@@ -605,6 +702,7 @@ def recuperer_stage(request, stage_id):
 @csrf_exempt
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@exclude_utilisateur_role
 def update_stage(request, stage_id):
     """Update a stage by ID"""
     try:
@@ -716,21 +814,39 @@ def get_cin(request, matricule):
 def get_stage_document(request, stage_id, document_type):
     """Get stage document by stage ID and document type"""
     try:
-        print(f"🔍 Debug: Requesting document - stage_id: {stage_id}, document_type: {document_type}")
-        
         stage = Stage.objects.filter(id=stage_id, deleted=False).first()
         
         if not stage:
-            print(f"❌ Debug: Stage {stage_id} not found or deleted")
             return Response(
                 {"error": "Stage not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        print(f"✅ Debug: Stage {stage_id} found")
-        print(f"🔍 Debug: Stage has demande_de_stage: {stage.demande_de_stage is not None}")
-        if stage.demande_de_stage:
-            print(f"🔍 Debug: demande_de_stage size: {len(stage.demande_de_stage)} bytes")
+        # Role-based access control: Check if user can access this stage
+        current_user = request.user
+        can_access = False
+        
+        if hasattr(current_user, 'role'):
+            if current_user.role in ['admin', 'admin_rh', 'utilisateur_rh']:
+                # RH and admin roles can access all stages
+                can_access = True
+            elif current_user.role == 'utilisateur':
+                # Utilisateur can only access stages with sujets they created
+                if stage.sujet and stage.sujet.created_by == current_user:
+                    can_access = True
+            elif current_user.role == 'responsable_de_service':
+                # Responsable de service can access stages from their department
+                if stage.sujet and stage.sujet.created_by and current_user.departement:
+                    if stage.sujet.created_by.departement == current_user.departement and stage.sujet.created_by.role == 'utilisateur':
+                        can_access = True
+        
+        if not can_access:
+            return Response(
+                {"error": "Vous n'avez pas l'autorisation d'accéder à ce document"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+
             
         document_data = None
         content_type = 'application/pdf'
@@ -738,32 +854,30 @@ def get_stage_document(request, stage_id, document_type):
         
         if document_type == 'cv' and stage.cv:
             document_data = stage.cv
-            print(f"✅ Debug: Found CV document")
         elif document_type == 'convention' and stage.convention:
             document_data = stage.convention
-            print(f"✅ Debug: Found convention document")
         elif document_type == 'assurance' and stage.assurance:
             document_data = stage.assurance
-            print(f"✅ Debug: Found assurance document")
         elif document_type == 'lettre_motivation' and stage.lettre_motivation:
             document_data = stage.lettre_motivation
-            print(f"✅ Debug: Found lettre_motivation document")
         elif document_type == 'demande_de_stage' and stage.demande_de_stage:
-            print(f"🔄 Debug: Converting DOCX to PDF for demande_de_stage")
-            # Convert stored DOCX to PDF for serving
-            pdf_data = convert_docx_bytes_to_pdf_bytes(stage.demande_de_stage)
-            if pdf_data:
-                document_data = pdf_data
-                print(f"✅ Debug: Successfully converted DOCX to PDF, size: {len(pdf_data)} bytes")
+            # First, try to serve cached PDF if available
+            if stage.demande_de_stage_pdf:
+                document_data = stage.demande_de_stage_pdf
             else:
-                print(f"❌ Debug: Failed to convert DOCX to PDF")
-                return Response(
-                    {"error": "Failed to convert demande de stage to PDF"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                # Convert stored DOCX to PDF and cache it
+                pdf_data = convert_docx_bytes_to_pdf_bytes(stage.demande_de_stage)
+                if pdf_data:
+                    # Cache the PDF for future requests
+                    stage.demande_de_stage_pdf = pdf_data
+                    stage.save()
+                    document_data = pdf_data
+                else:
+                    return Response(
+                        {"error": "Failed to convert demande de stage to PDF"},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
         else:
-            print(f"❌ Debug: Document '{document_type}' not found or empty")
-            print(f"🔍 Debug: Available documents - cv: {stage.cv is not None}, convention: {stage.convention is not None}, assurance: {stage.assurance is not None}, lettre_motivation: {stage.lettre_motivation is not None}, demande_de_stage: {stage.demande_de_stage is not None}")
             return Response(
                 {"error": f"Document '{document_type}' not found"},
                 status=status.HTTP_404_NOT_FOUND
@@ -780,6 +894,7 @@ def get_stage_document(request, stage_id, document_type):
 @csrf_exempt
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
+@exclude_utilisateur_role
 def upload_stage_document(request, stage_id):
     """
     Upload documents for a specific stage
@@ -849,16 +964,80 @@ def upload_stage_document(request, stage_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_stagiaires(request):
-    """Get paginated stagiaires for admin/admin_rh users"""
+    """Get paginated stagiaires for admin/admin_rh users with filtering support"""
     try:
         # Get pagination parameters
         page_number = request.GET.get('page', 1)
         page_size = int(request.GET.get('page_size', 25))
         
-        # Get all non-deleted stagiaires ordered by creation date
-        stagiaires_queryset = Stagiaire.objects.filter(deleted=False).order_by('date_creation')
+        # Get filter parameters
+        search_term = request.GET.get('search', '').strip()
+        stage_status = request.GET.get('stage_status', '').strip()
+        stage_nature = request.GET.get('stage_nature', '').strip()
+        has_active_stage = request.GET.get('has_active_stage', '').strip()
         
-        # Create paginator
+        stagiaires_queryset = Stagiaire.objects.filter(deleted=False)
+        
+        # Role-based filtering: users with 'utilisateur' role can only see stagiaires with stages having sujets they created
+        current_user = request.user
+        if hasattr(current_user, 'role') and current_user.role == 'utilisateur':
+            # Only show stagiaires that have stages with sujets created by this user
+            stagiaires_queryset = stagiaires_queryset.filter(
+                stages__sujet__created_by=current_user,
+                stages__sujet__isnull=False
+            ).distinct()
+        
+        # Apply search filter if provided
+        if search_term:
+            stagiaires_queryset = stagiaires_queryset.filter(
+                Q(matricule__icontains=search_term) |
+                Q(nom__icontains=search_term) |
+                Q(prenom__icontains=search_term) |
+                Q(email__icontains=search_term)
+            )
+        
+        # Apply stage-based filters by joining with Stage model
+        if stage_status or stage_nature or has_active_stage:
+            if has_active_stage == 'true':
+                # Only stagiaires with active stages
+                stage_filter = Q(stages__isnull=False)
+                
+                # Apply additional stage filters to the latest stage
+                if stage_status:
+                    stage_filter &= Q(stages__statut=stage_status)
+                if stage_nature:
+                    stage_filter &= Q(stages__nature=stage_nature)
+                
+                stagiaires_queryset = stagiaires_queryset.filter(stage_filter).distinct()
+                    
+            elif has_active_stage == 'false':
+                # Only stagiaires without stages
+                stagiaires_queryset = stagiaires_queryset.filter(stages__isnull=True)
+            else:
+                # All stagiaires - apply stage filters only to those who have stages
+                stage_conditions = []
+                
+                if stage_status:
+                    stage_conditions.append(Q(stages__statut=stage_status))
+                if stage_nature:
+                    stage_conditions.append(Q(stages__nature=stage_nature))
+                
+                if stage_conditions:
+                    # Combine stage conditions with AND
+                    combined_stage_filter = stage_conditions[0]
+                    for condition in stage_conditions[1:]:
+                        combined_stage_filter &= condition
+                    
+                    # Filter: (no stages) OR (has stages with specified conditions)
+                    stagiaires_queryset = stagiaires_queryset.filter(
+                        Q(stages__isnull=True) | combined_stage_filter
+                    ).distinct()
+        
+        # Order by creation date
+        stagiaires_queryset = stagiaires_queryset.order_by('date_creation')
+        
+        total_count = stagiaires_queryset.count()
+        
         paginator = Paginator(stagiaires_queryset, page_size)
         
         try:
@@ -904,7 +1083,6 @@ def get_all_stagiaires(request):
         }, status=status.HTTP_200_OK)
         
     except Exception as e:
-        print(f"Get stagiaires error: {str(e)}")
         return Response({'error': 'Erreur lors de la récupération des stagiaires'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
@@ -1079,3 +1257,475 @@ def stats_counts(request):
         return Response({
             "error": f"Erreur lors du calcul des statistiques: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@csrf_exempt
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@allow_roles('utilisateur', 'responsable_de_service')
+def sign_demande_stage(request, stage_id):
+    """Sign the demande de stage document for utilisateur and responsable_de_service role users"""
+    
+    try:
+        user = request.user
+        
+        # Verify the user has 'utilisateur' or 'responsable_de_service' role
+        if user.role not in ['utilisateur', 'responsable_de_service']:
+            return Response({
+                "error": "Seuls les utilisateurs avec le rôle 'utilisateur' ou 'responsable_de_service' peuvent signer les demandes de stage."
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get the stage
+        stage = Stage.objects.get(id=stage_id, deleted=False)
+        
+        # Role-specific validation and signing logic
+        if user.role == 'utilisateur':
+            # Check if this user is the owner of a sujet in this stage (encadrant)
+            if not stage.sujet or stage.sujet.created_by != user:
+                return Response({
+                    "error": "Vous ne pouvez signer que les stages pour lesquels vous avez créé le sujet."
+                }, status=status.HTTP_403_FORBIDDEN)
+            
+            # Check if already signed as encadrant
+            if stage.is_signed_by_role('encadrant'):
+                return Response({
+                    "error": "Ce stage a déjà été signé en tant qu'encadrant."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            signature_role = 'encadrant'
+            success_message_prefix = "Signature encadrant ajoutée avec succès!"
+            
+        elif user.role == 'responsable_de_service':
+            # Check if already signed as responsable_de_service
+            if stage.is_signed_by_role('responsable_de_service'):
+                return Response({
+                    "error": "Ce stage a déjà été signé en tant que responsable de service."
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            signature_role = 'responsable_de_service'
+            success_message_prefix = "Signature responsable de service ajoutée avec succès!"
+        
+        # Check if demande_de_stage exists
+        if not stage.demande_de_stage:
+            return Response({
+                "error": "Aucune demande de stage n'est disponible pour ce stage."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            # Load DOCX template (or use the existing demande_de_stage)
+            docx_template_path = os.path.join(settings.BASE_DIR, 'resume_service', 'media', 'DEMANDE DE STAGE.docx')
+            
+            if os.path.exists(docx_template_path):
+                # Get current date
+                current_date = datetime.now().strftime('%d/%m/%Y')
+                
+                # Update document data in JSON structure
+                stage.update_document_data()
+                
+                # Prepare replacements dictionary from JSON data and existing signatures
+                document_data = stage.demande_de_stage_data.get('document_data', {})
+                replacements = {
+                    '«NOM»': document_data.get('nom', ''),
+                    '«PRENOM»': document_data.get('prenom', ''),
+                    '«CIN»': document_data.get('cin', ''),
+                    '«TELEPHONE»': document_data.get('telephone', ''),
+                    '«SPECIALITE»': document_data.get('specialite', ''),
+                    '«ETABLISSEMENT»': document_data.get('etablissement', ''),
+                    '«PERIODE_DU»': document_data.get('periode_du', ''),
+                    '«PERIODE_AU»': document_data.get('periode_au', ''),
+                    '«ENCADRANT»': document_data.get('encadrant', ''),
+                    '«SERVICE»': document_data.get('service', ''),
+                    '«PERIODE_ACCORDEE_DU»': document_data.get('periode_accordee_du', ''),
+                    '«PERIODE_ACCORDEE_AU»': document_data.get('periode_accordee_au', ''),
+                    '«SUJET»': document_data.get('sujet', ''),
+                    # Initialize signature fields as empty (will be filled based on existing signatures)
+                    '«NOM_ENCADRANT»': '',
+                    '«DATE_SIGNATURE_ENCADRANT»': '',
+                    '«SIGNATURE_ENCADRANT»': '',
+                    '«NOM_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RH»': '',
+                    '«SIGNATURE_RH»': ''
+                }
+                
+                # Preserve existing signatures from JSON data
+                encadrant_signature = stage.get_signature_info('encadrant')
+                if encadrant_signature:
+                    replacements['«NOM_ENCADRANT»'] = encadrant_signature['full_name']
+                    replacements['«DATE_SIGNATURE_ENCADRANT»'] = encadrant_signature['signed_at']
+                    replacements['«SIGNATURE_ENCADRANT»'] = encadrant_signature['full_name']
+                
+                responsable_service_signature = stage.get_signature_info('responsable_de_service')
+                if responsable_service_signature:
+                    replacements['«NOM_RESPONSABLE_SERVICE»'] = responsable_service_signature['full_name']
+                    replacements['«DATE_SIGNATURE_RESPONSABLE_SERVICE»'] = responsable_service_signature['signed_at']
+                    replacements['«SIGNATURE_RESPONSABLE_SERVICE»'] = responsable_service_signature['full_name']
+                
+                rh_signature = stage.get_signature_info('responsable_rh')
+                if rh_signature:
+                    replacements['«DATE_SIGNATURE_RH»'] = rh_signature['signed_at']
+                    replacements['«SIGNATURE_RH»'] = rh_signature['full_name']
+                
+                # Apply current user's signature to the appropriate field
+                if signature_role == 'encadrant':
+                    replacements.update({
+                        '«NOM_ENCADRANT»': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+                        '«DATE_SIGNATURE_ENCADRANT»': current_date,
+                        '«SIGNATURE_ENCADRANT»': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+                    })
+                elif signature_role == 'responsable_de_service':
+                    replacements.update({
+                        '«NOM_RESPONSABLE_SERVICE»': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+                        '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': current_date,
+                        '«SIGNATURE_RESPONSABLE_SERVICE»': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+                    })
+                
+                # Generate DOCX from template with signature information
+                filled_docx_bytes = create_docx_from_template_xml(
+                    docx_path=docx_template_path,
+                    replacements=replacements
+                )
+                
+                if filled_docx_bytes:
+                    # Save signed DOCX to database
+                    stage.demande_de_stage = filled_docx_bytes
+                    
+                    # Convert DOCX to PDF and cache it
+                    try:
+                        pdf_bytes = convert_docx_bytes_to_pdf_bytes(filled_docx_bytes)
+                        if pdf_bytes:
+                            stage.demande_de_stage_pdf = pdf_bytes
+                    except Exception:
+                        pass  # PDF will be generated on-demand
+                    
+                    # Add signature to JSON structure
+                    stage.add_signature(signature_role, user, current_date)
+                    
+                    # Check if all signatures are present and update stage status
+                    if stage.are_all_signatures_complete():
+                        stage.statut = 'stage_en_cours'
+                        status_message = f"{success_message_prefix} Toutes les signatures sont complètes, le stage est maintenant en cours."
+                    else:
+                        # Update status to waiting for signatures if not already
+                        if stage.statut != 'en_attente_des_signatures':
+                            stage.statut = 'en_attente_des_signatures'
+                        status_message = f"{success_message_prefix} En attente des autres signatures."
+                    
+                    stage.save()
+                    
+                    return Response({
+                        "message": status_message,
+                        "signer_name": f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.username,
+                        "signature_date": current_date,
+                        "stage_status": stage.statut,
+                        "signatures_complete": stage.are_all_signatures_complete()
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        "error": "Erreur lors de la génération du document signé."
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response({
+                    "error": "Template de demande de stage non trouvé."
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception as signing_error:
+            return Response({
+                "error": f"Erreur lors de la signature: {str(signing_error)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    except Stage.DoesNotExist:
+        return Response({
+            "error": "Stage non trouvé."
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            "error": f"Erreur lors de la signature: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@allow_roles('utilisateur_rh', 'admin_rh')
+def sign_demande_stage_rh(request, stage_id):
+    """Sign the demande de stage document for RH role users"""
+    
+    try:
+        user = request.user
+        
+        # Verify the user has RH role
+        if user.role not in ['utilisateur_rh', 'admin_rh']:
+            return Response({
+                "error": "Seuls les utilisateurs avec le rôle RH peuvent signer les demandes de stage."
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get the stage
+        stage = Stage.objects.get(id=stage_id, deleted=False)
+        
+        # Check if already signed as responsable_rh
+        if stage.is_signed_by_role('responsable_rh'):
+            return Response({
+                "error": "Ce stage a déjà été signé par les RH."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if demande_de_stage exists
+        if not stage.demande_de_stage:
+            return Response({
+                "error": "Aucune demande de stage n'est disponible pour ce stage."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            # Load DOCX template
+            docx_template_path = os.path.join(settings.BASE_DIR, 'resume_service', 'media', 'DEMANDE DE STAGE.docx')
+            
+            if os.path.exists(docx_template_path):
+                # Get current date
+                current_date = datetime.now().strftime('%d/%m/%Y')
+                
+                # Update document data in JSON structure
+                stage.update_document_data()
+                
+                # Prepare replacements dictionary from JSON data and existing signatures
+                document_data = stage.demande_de_stage_data.get('document_data', {})
+                replacements = {
+                    '«NOM»': document_data.get('nom', ''),
+                    '«PRENOM»': document_data.get('prenom', ''),
+                    '«CIN»': document_data.get('cin', ''),
+                    '«TELEPHONE»': document_data.get('telephone', ''),
+                    '«SPECIALITE»': document_data.get('specialite', ''),
+                    '«ETABLISSEMENT»': document_data.get('etablissement', ''),
+                    '«PERIODE_DU»': document_data.get('periode_du', ''),
+                    '«PERIODE_AU»': document_data.get('periode_au', ''),
+                    '«ENCADRANT»': document_data.get('encadrant', ''),
+                    '«SERVICE»': document_data.get('service', ''),
+                    '«PERIODE_ACCORDEE_DU»': document_data.get('periode_accordee_du', ''),
+                    '«PERIODE_ACCORDEE_AU»': document_data.get('periode_accordee_au', ''),
+                    '«SUJET»': document_data.get('sujet', ''),
+                    # Initialize signature fields as empty (will be filled based on existing signatures)
+                    '«NOM_ENCADRANT»': '',
+                    '«DATE_SIGNATURE_ENCADRANT»': '',
+                    '«SIGNATURE_ENCADRANT»': '',
+                    '«NOM_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RH»': '',
+                    '«SIGNATURE_RH»': ''
+                }
+                
+                # Preserve existing signatures from JSON data
+                encadrant_signature = stage.get_signature_info('encadrant')
+                if encadrant_signature:
+                    replacements['«NOM_ENCADRANT»'] = encadrant_signature['full_name']
+                    replacements['«DATE_SIGNATURE_ENCADRANT»'] = encadrant_signature['signed_at']
+                    replacements['«SIGNATURE_ENCADRANT»'] = encadrant_signature['full_name']
+                
+                responsable_service_signature = stage.get_signature_info('responsable_de_service')
+                if responsable_service_signature:
+                    replacements['«NOM_RESPONSABLE_SERVICE»'] = responsable_service_signature['full_name']
+                    replacements['«DATE_SIGNATURE_RESPONSABLE_SERVICE»'] = responsable_service_signature['signed_at']
+                    replacements['«SIGNATURE_RESPONSABLE_SERVICE»'] = responsable_service_signature['full_name']
+                
+                # Apply current RH user's signature
+                replacements.update({
+                    '«DATE_SIGNATURE_RH»': current_date,
+                    '«SIGNATURE_RH»': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+                })
+                
+                # Generate DOCX from template with RH signature information
+                filled_docx_bytes = create_docx_from_template_xml(
+                    docx_path=docx_template_path,
+                    replacements=replacements
+                )
+                
+                if filled_docx_bytes:
+                    # Save signed DOCX to database
+                    stage.demande_de_stage = filled_docx_bytes
+                    
+                    # Convert DOCX to PDF and cache it
+                    try:
+                        pdf_bytes = convert_docx_bytes_to_pdf_bytes(filled_docx_bytes)
+                        if pdf_bytes:
+                            stage.demande_de_stage_pdf = pdf_bytes
+                    except Exception:
+                        pass  # PDF will be generated on-demand
+                    
+                    # Add signature to JSON structure
+                    stage.add_signature('responsable_rh', user, current_date)
+                    
+                    # Check if all signatures are present and update stage status
+                    if stage.are_all_signatures_complete():
+                        stage.statut = 'stage_en_cours'
+                        status_message = "Signature RH ajoutée avec succès! Toutes les signatures sont complètes, le stage est maintenant en cours."
+                    else:
+                        # Update status to waiting for signatures if not already
+                        if stage.statut != 'en_attente_des_signatures':
+                            stage.statut = 'en_attente_des_signatures'
+                        status_message = "Signature RH ajoutée avec succès! En attente des autres signatures."
+                    
+                    stage.save()
+                    
+                    return Response({
+                        "message": status_message,
+                        "signer_name": f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.username,
+                        "signature_date": current_date,
+                        "stage_status": stage.statut,
+                        "signatures_complete": stage.are_all_signatures_complete()
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({
+                        "error": "Erreur lors de la génération du document signé."
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response({
+                    "error": "Template de demande de stage non trouvé."
+                }, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception as signing_error:
+            return Response({
+                "error": f"Erreur lors de la signature: {str(signing_error)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    except Stage.DoesNotExist:
+        return Response({
+            "error": "Stage non trouvé."
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({
+            "error": f"Erreur lors de la signature: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@allow_roles('admin')  # Only admin can sign as chef de département
+def sign_demande_stage_chef_dept(request, stage_id):
+    """Sign the demande de stage document for Chef de Département role users"""
+    
+    try:
+        user = request.user
+        
+        # Verify the user has admin role (chef de département)
+        if user.role != 'admin':
+            return Response({
+                "error": "Seuls les utilisateurs avec le rôle admin peuvent signer en tant que chef de département."
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Get the stage
+        stage = Stage.objects.get(id=stage_id, deleted=False)
+        
+        # Check if demande_de_stage exists
+        if not stage.demande_de_stage:
+            return Response({
+                "error": "Aucune demande de stage n'est disponible pour ce stage."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            # Load DOCX template
+            docx_template_path = os.path.join(settings.BASE_DIR, 'resume_service', 'media', 'DEMANDE DE STAGE.docx')
+            
+            if os.path.exists(docx_template_path):
+                # Get current date
+                current_date = datetime.now().strftime('%d/%m/%Y')
+                
+                # Prepare replacements dictionary
+                replacements = {
+                    '«NOM»': stage.stagiaire.nom.upper() if stage.stagiaire.nom else '',
+                    '«PRENOM»': stage.stagiaire.prenom.title() if stage.stagiaire.prenom else '',
+                    '«CIN»': stage.stagiaire.matricule if stage.stagiaire.matricule else '',
+                    '«EMAIL»': stage.stagiaire.email if stage.stagiaire.email else '',
+                    '«TELEPHONE»': stage.stagiaire.num_tel if stage.stagiaire.num_tel else '',
+                    '«DATE_NAISSANCE»': stage.stagiaire.date_naissance.strftime('%d/%m/%Y') if stage.stagiaire.date_naissance else '',
+                    '«NATURE»': stage.nature.upper() if stage.nature else '',
+                    '«DATE_DEBUT»': stage.date_debut.strftime('%d/%m/%Y') if stage.date_debut else '',
+                    '«DATE_FIN»': stage.date_fin.strftime('%d/%m/%Y') if stage.date_fin else '',
+                    '«PERIODE_DU»': stage.date_debut.strftime('%d/%m/%Y') if stage.date_debut else '',
+                    '«PERIODE_AU»': stage.date_fin.strftime('%d/%m/%Y') if stage.date_fin else '',
+                    '«PERIODE_ACCORDEE_DU»': stage.date_debut.strftime('%d/%m/%Y') if stage.date_debut else '',
+                    '«PERIODE_ACCORDEE_AU»': stage.date_fin.strftime('%d/%m/%Y') if stage.date_fin else '',
+                    '«SUJET»': stage.sujet.titre if stage.sujet and stage.sujet.titre else '',
+                    '«DESCRIPTION_SUJET»': stage.sujet.description if stage.sujet and stage.sujet.description else '',
+                    '«DATE_DEMANDE»': current_date,
+                    '«SPECIALITE»': '',
+                    '«ETABLISSEMENT»': '',
+                    '«DIRECTION»': '',
+                    '«ENCADRANT»': '',
+                    '«SERVICE»': '',
+                    # Preserve existing signatures
+                    '«NOM_ENCADRANT»': '',
+                    '«DATE_SIGNATURE_ENCADRANT»': '',
+                    '«SIGNATURE_ENCADRANT»': '',
+                    # Chef de département signature fields - but don't set as Responsable du service yet
+                    '«NOM_RESPONSABLE_SERVICE»': '',
+                    '«DATE_SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    '«SIGNATURE_RESPONSABLE_SERVICE»': '',
+                    # RH signature fields
+                    '«DATE_SIGNATURE_RH»': '',
+                    '«SIGNATURE_RH»': '',
+                }
+                
+                # Preserve existing signatures from JSON data
+                encadrant_signature = stage.get_signature_info('encadrant')
+                if encadrant_signature:
+                    # Encadrant should always be the "Responsable du service"
+                    replacements['«NOM_RESPONSABLE_SERVICE»'] = encadrant_signature['full_name']
+                    replacements['«DATE_SIGNATURE_RESPONSABLE_SERVICE»'] = encadrant_signature['signed_at']
+                    replacements['«SIGNATURE_RESPONSABLE_SERVICE»'] = encadrant_signature['full_name']
+                    # Also fill the encadrant-specific fields
+                    replacements['«NOM_ENCADRANT»'] = encadrant_signature['full_name']
+                    replacements['«DATE_SIGNATURE_ENCADRANT»'] = encadrant_signature['signed_at']
+                    replacements['«SIGNATURE_ENCADRANT»'] = encadrant_signature['full_name']
+                
+                rh_signature = stage.get_signature_info('responsable_rh')
+                if rh_signature:
+                    replacements['«DATE_SIGNATURE_RH»'] = rh_signature['signed_at']
+                    replacements['«SIGNATURE_RH»'] = rh_signature['full_name']
+                
+                # Generate DOCX
+                filled_docx_bytes = create_docx_from_template_xml(
+                    docx_path=docx_template_path,
+                    replacements=replacements
+                )
+                
+                if filled_docx_bytes:
+                    stage.demande_de_stage = filled_docx_bytes
+                    
+                    # Convert DOCX to PDF and cache it
+                    try:
+                        pdf_bytes = convert_docx_bytes_to_pdf_bytes(filled_docx_bytes)
+                        if pdf_bytes:
+                            stage.demande_de_stage_pdf = pdf_bytes
+                    except Exception:
+                        pass  # PDF will be generated on-demand
+                    
+                    # Add signature to JSON structure
+                    stage.add_signature('chef_departement', user, current_date)
+                    
+                    # Check all signatures
+                    if stage.are_all_signatures_complete():
+                        stage.statut = 'stage_en_cours'
+                        status_message = "Toutes les signatures sont complètes, le stage est maintenant en cours."
+                    else:
+                        if stage.statut != 'en_attente_des_signatures':
+                            stage.statut = 'en_attente_des_signatures'
+                        status_message = "Signature chef de département ajoutée. En attente des autres signatures."
+                    
+                    stage.save()
+                    
+                    return Response({
+                        "message": status_message,
+                        "signer_name": f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.username,
+                        "signature_date": current_date,
+                        "stage_status": stage.statut,
+                        "signatures_complete": stage.are_all_signatures_complete()
+                    }, status=status.HTTP_200_OK)
+                else:
+                    return Response({"error": "Erreur lors de la génération du document signé."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                return Response({"error": "Template de demande de stage non trouvé."}, status=status.HTTP_404_NOT_FOUND)
+                
+        except Exception as signing_error:
+            return Response({"error": f"Erreur lors de la signature: {str(signing_error)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    except Stage.DoesNotExist:
+        return Response({"error": "Stage non trouvé."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": f"Erreur lors de la signature: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

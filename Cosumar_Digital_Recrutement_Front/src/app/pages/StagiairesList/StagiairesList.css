@@ -1,18 +1,18 @@
-/* StagiairesList - Compact Single Line Design */
+/* StagiairesList - Modern Clean Design */
 .stagiaires-list {
   max-width: 98vw;
   width: 100%;
-  margin: 15px auto;
+  margin: 20px auto;
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 6px 25px rgba(0,0,0,0.08);
-  padding: 24px 16px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  padding: 40px 24px;
   font-family: 'Inter', 'Segoe UI', sans-serif;
-  overflow: hidden;
+  border: 1px solid #f1f5f9;
 }
 
 .stagiaires-list h2 {
-  margin-bottom: 20px;
+  margin-bottom: 32px;
   font-size: 2.2rem;
   color: #1e293b;
   font-weight: 700;
@@ -31,6 +31,141 @@
   height: 3px;
   background: linear-gradient(90deg, #10b981, #059669);
   border-radius: 2px;
+}
+
+/* Filters Section */
+.filters-section {
+  margin-bottom: 24px;
+}
+
+.filters-container {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.search-container {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px 12px 48px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 1rem;
+  background: white;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/search.svg') center/contain no-repeat;
+  opacity: 0.5;
+}
+
+.filter-selects {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-select {
+  flex: 1;
+  min-width: 150px;
+  padding: 10px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  background: white;
+  color: #374151;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.filter-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-select:hover {
+  border-color: #9ca3af;
+}
+
+.filter-select:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.filter-select:disabled:hover {
+  border-color: #e2e8f0;
+}
+
+.clear-filters-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.clear-filters-btn:hover {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  transform: translateY(-2px);
+}
+
+.clear-icon {
+  width: 16px;
+  height: 16px;
+  background: url('https://cdn.jsdelivr.net/npm/lucide-static@0.271.0/icons/x-circle.svg') center/contain no-repeat;
+  filter: invert(1);
+}
+
+/* Responsive filters */
+@media (max-width: 768px) {
+  .filter-selects {
+    flex-direction: column;
+  }
+  
+  .filter-select {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .clear-filters-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* Table container with horizontal scroll */
@@ -258,24 +393,6 @@ td:nth-child(8) { /* CV Download */
   transform: translateY(-1px);
 }
 
-.action-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 4px 8px;
-  margin-right: 2px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  transition: all 0.15s ease;
-  color: #64748b;
-}
-
-.action-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: translateY(-1px);
-}
-
 /* Loading spinner */
 .loading-spinner {
   display: flex;
@@ -310,10 +427,16 @@ td:nth-child(8) { /* CV Download */
 
 /* Pagination info */
 .pagination-info {
-  margin-bottom: 16px;
-  color: #6c757d;
-  font-size: 0.95rem;
-  font-weight: 500;
+  margin-bottom: 24px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  color: #475569 !important;
+  font-size: 1rem;
+  font-weight: 500 !important;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
 /* Pagination controls */
@@ -397,5 +520,27 @@ td:nth-child(8) { /* CV Download */
     padding: 6px 8px;
     font-size: 0.85rem;
     min-width: 32px;
+  }
+}
+
+.no-action {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* Responsive modal */
+@media (max-width: 768px) {
+  .filter-selects {
+    flex-direction: column;
+  }
+  
+  .filter-select {
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .clear-filters-btn {
+    width: 100%;
+    justify-content: center;
   }
 }

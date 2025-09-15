@@ -86,6 +86,15 @@
                 <p><strong>Prénom:</strong> {{ selectedCandidate()?.prenom }}</p>
                 <p><strong>Matricule:</strong> {{ selectedCandidate()?.matricule }}</p>
                 <p><strong>Date de naissance:</strong> {{ selectedCandidate()?.date_naissance || 'Non renseignée' }}</p>
+                @if (selectedCandidate()?.introduit_par__nom || selectedCandidate()?.introduit_par__prenom) {
+                  <p><strong>Introduit par:</strong> {{ selectedCandidate()?.introduit_par__prenom }} {{ selectedCandidate()?.introduit_par__nom }}
+                    @if (selectedCandidate()?.introduit_par__email) {
+                      <span class="email-info">({{ selectedCandidate()?.introduit_par__email }})</span>
+                    }
+                  </p>
+                } @else {
+                  <p><strong>Introduit par:</strong> <em class="no-info">Non renseigné</em></p>
+                }
               </div>
               <button type="button" class="clear-selection-btn" (click)="clearCandidateSelection()">
                 Changer de stagiaire
@@ -229,6 +238,125 @@
               [readonly]="candidateMethod() === 'existing'"
               [class.readonly]="candidateMethod() === 'existing'"
             >
+          </div>
+
+          <!-- Introduit par section -->
+          <div class="form-group introducer-section">
+            <div class="introducer-header">
+              <div class="checkbox-group">
+                <label class="modern-checkbox-label">
+                  <input 
+                    type="checkbox"
+                    [checked]="showIntroducerField()"
+                    (change)="toggleIntroducerField($any($event.target).checked)"
+                    class="modern-checkbox"
+                  >
+                  <span class="checkbox-custom"></span>
+                  <div class="checkbox-content">
+                    <span class="checkbox-title">Spécifier l'introducer</span>
+                    <span class="checkbox-subtitle">Qui a amené ce stagiaire à l'entreprise?</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
+            @if (showIntroducerField()) {
+              <div class="introducer-search-container">
+                <div class="search-section">
+                  <label for="introducer-search" class="search-label">
+                    <i class="label-icon">👤</i>
+                    Rechercher l'utilisateur introducer
+                  </label>
+                  <div class="modern-search-container">
+                    <input 
+                      type="text"
+                      id="introducer-search"
+                      [value]="introducerSearchQuery()"
+                      (input)="onIntroducerSearchChange($event)"
+                      placeholder="Tapez le nom, prénom ou email..."
+                      class="modern-search-input"
+                      autocomplete="off"
+                    >
+                    <div class="search-icon-container">
+                      @if (isLoadingUsers()) {
+                        <div class="search-spinner"></div>
+                      } @else {
+                        <i class="search-icon">🔍</i>
+                      }
+                    </div>
+                  </div>
+                </div>
+                
+                @if (introducerSearchQuery() && filteredUsers().length > 0) {
+                  <div class="modern-search-results">
+                    <div class="results-header">
+                      <span class="results-count">{{ filteredUsers().length }} utilisateur(s) trouvé(s)</span>
+                    </div>
+                    @for (user of filteredUsers(); track user.id) {
+                      <div 
+                        class="modern-user-item"
+                        [class.selected]="selectedIntroducer()?.id === user.id"
+                        (click)="selectIntroducer(user)"
+                      >
+                        <div class="user-avatar">
+                          <span class="avatar-initials">{{ user.prenom?.[0] }}{{ user.nom?.[0] }}</span>
+                        </div>
+                        <div class="user-details">
+                          <div class="user-name">{{ user.prenom }} {{ user.nom }}</div>
+                          <div class="user-email">{{ user.email }}</div>
+                          <div class="user-meta">
+                            <span class="user-role" [class]="'role-' + user.role">{{ user.role }}</span>
+                            @if (user.departement) {
+                              <span class="user-department">{{ user.departement }}</span>
+                            }
+                          </div>
+                        </div>
+                        <div class="selection-indicator">
+                          @if (selectedIntroducer()?.id === user.id) {
+                            <i class="selected-icon">✓</i>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+                
+                @if (introducerSearchQuery() && filteredUsers().length === 0 && !isLoadingUsers()) {
+                  <div class="no-results-modern">
+                    <div class="no-results-icon">🔍</div>
+                    <div class="no-results-text">
+                      <p>Aucun utilisateur trouvé</p>
+                      <small>Essayez avec un autre nom ou email</small>
+                    </div>
+                  </div>
+                }
+                
+                @if (selectedIntroducer()) {
+                  <div class="selected-introducer-modern">
+                    <div class="selected-header">
+                      <i class="header-icon">✅</i>
+                      <h5>Introducer sélectionné</h5>
+                    </div>
+                    <div class="selected-user-card">
+                      <div class="selected-avatar">
+                        <span class="avatar-initials large">{{ selectedIntroducer()?.prenom?.[0] }}{{ selectedIntroducer()?.nom?.[0] }}</span>
+                      </div>
+                      <div class="selected-details">
+                        <div class="selected-name">{{ selectedIntroducer()?.prenom }} {{ selectedIntroducer()?.nom }}</div>
+                        <div class="selected-email">{{ selectedIntroducer()?.email }}</div>
+                        <div class="selected-role" [class]="'role-' + selectedIntroducer()?.role">
+                          {{ selectedIntroducer()?.role }}
+                        </div>
+                      </div>
+                      <button type="button" class="change-user-btn" (click)="clearIntroducerSelection()">
+                        <i class="btn-icon">🔄</i>
+                        Changer
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
           </div>
           
           <div class="form-group">

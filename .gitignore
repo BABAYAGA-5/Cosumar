@@ -1,4 +1,5 @@
-Cosumar_Digital_Recrutement_Front/node_modules/
-env/
+Cosumar_Digital_Recrutement_Front/node_modules
+Cosumar_Digital_Recrutement/env
 Cosumar_Digital_Recrutement/resume_service/migrations/__pycache__/
 Cosumar_Digital_Recrutement/resume_service/__pycache__/
+Cosumar_Digital_Recrutement/Cosumar_Digital_Recrutement/settings.py

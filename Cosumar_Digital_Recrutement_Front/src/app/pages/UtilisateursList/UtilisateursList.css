@@ -14,9 +14,9 @@
 
 .utilisateurs-list h2 {
   margin-bottom: 32px;
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   color: #1e293b;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
   letter-spacing: -0.02em;
   position: relative;
@@ -164,9 +164,9 @@
   padding: 16px 24px;
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 16px;
-  color: #475569;
+  color: #475569 !important;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 500 !important;
   text-align: center;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
@@ -202,27 +202,6 @@
 
 .table-container::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(90deg, #475569, #334155);
-}
-
-/* Scroll indicator */
-.scroll-hint {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  background: #3b82f6;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-}
-
-.table-container:hover .scroll-hint {
-  opacity: 1;
 }
 
 /* Table */
@@ -818,14 +797,6 @@ td:nth-child(10) { /* Actions */
   border-radius: 8px;
   padding: 10px 16px;
   margin-bottom: 18px;
-  font-weight: 500;
-}
-
-/* Pagination info */
-.pagination-info {
-  margin-bottom: 16px;
-  color: #6c757d;
-  font-size: 0.95rem;
   font-weight: 500;
 }
 

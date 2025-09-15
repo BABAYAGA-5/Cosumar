@@ -11,12 +11,12 @@
       }
     </div>
     <div class="header-actions">
-      @if (!isEditMode()) {
+      @if (!isEditMode() && getUserRole() !== 'utilisateur' && getUserRole() !== 'responsable_de_service') {
         <button class="edit-btn" (click)="toggleEditMode()">
           <i class="icon-edit"></i>
           Modifier
         </button>
-      } @else {
+      } @else if (isEditMode()) {
         <button class="save-btn" (click)="saveChanges()" [disabled]="isSaving()">
           @if (isSaving()) {
             <span class="spinner"></span>
@@ -32,6 +32,29 @@
       }
     </div>
   </div>
+
+  <!-- Status Message Banner -->
+  @if (statusMessage()) {
+    <div class="status-message" [class]="'status-' + statusMessage()!.type">
+      <div class="status-content">
+        <div class="status-icon">
+          @switch (statusMessage()!.type) {
+            @case ('success') { ✅ }
+            @case ('error') { ❌ }
+            @case ('warning') { ⚠️ }
+            @case ('info') { ℹ️ }
+          }
+        </div>
+        <div class="status-text">
+          <strong>{{ statusMessage()!.title }}</strong>
+          @if (statusMessage()!.message) {
+            <span> - {{ statusMessage()!.message }}</span>
+          }
+        </div>
+        <button class="status-close" (click)="dismissStatus()">×</button>
+      </div>
+    </div>
+  }
 
   <!-- Loading State -->
   @if (isLoading()) {
@@ -354,6 +377,98 @@
               <div class="document-preview">
                 <iframe [src]="demandeStagePreviewUrl()!" class="document-iframe"></iframe>
               </div>
+              <!-- Signature Button for Utilisateur Role -->
+              @if (canSignDocument() || isAlreadySignedByEncadrant()) {
+                <div class="signature-section">
+                  <button 
+                    class="sign-document-btn" 
+                    (click)="signDocument()" 
+                    [disabled]="isSigning() || isAlreadySignedByEncadrant()"
+                    title="Signer la demande de stage en tant qu'encadrant">
+                    @if (isSigning()) {
+                      <span class="spinner small"></span>
+                      Signature en cours...
+                    } @else if (isAlreadySignedByEncadrant()) {
+                      <i class="icon-signature">✅</i>
+                      Déjà signé
+                    } @else {
+                      <i class="icon-signature">✍️</i>
+                      Signer le document
+                    }
+                  </button>
+                  @if (signatureStatusMessage()) {
+                    <div class="signature-status-message">
+                      <small>{{ signatureStatusMessage() }}</small>
+                    </div>
+                  } @else {
+                    <p class="signature-info">
+                      <small>En tant qu'encadrant du sujet, vous pouvez signer cette demande de stage.</small>
+                    </p>
+                  }
+                </div>
+              }
+
+              <!-- Signature Button for RH Role -->
+              @if (canSignDocumentRH() || isAlreadySignedByRH()) {
+                <div class="signature-section rh-signature">
+                  <button 
+                    class="sign-document-btn rh-sign-btn" 
+                    (click)="signDocumentRH()" 
+                    [disabled]="isSigningRH() || isAlreadySignedByRH()"
+                    title="Signer la demande de stage en tant que RH">
+                    @if (isSigningRH()) {
+                      <span class="spinner small"></span>
+                      Signature RH en cours...
+                    } @else if (isAlreadySignedByRH()) {
+                      <i class="icon-signature">✅</i>
+                      Déjà signé (RH)
+                    } @else {
+                      <i class="icon-signature">🏢</i>
+                      Signer le document (RH)
+                    }
+                  </button>
+                  @if (signatureStatusRH()) {
+                    <div class="signature-status-message">
+                      <small>{{ signatureStatusRH() }}</small>
+                    </div>
+                  } @else {
+                    <p class="signature-info">
+                      <small>En tant que responsable RH, vous pouvez signer cette demande de stage.</small>
+                    </p>
+                  }
+                </div>
+              }
+
+              <!-- Signature Button for Chef de Département Role -->
+              @if (canSignDocumentChefDept() || isAlreadySignedByChefDept()) {
+                <div class="signature-section chef-dept-signature">
+                  <button 
+                    class="sign-document-btn chef-dept-sign-btn" 
+                    (click)="signDocumentChefDept()" 
+                    [disabled]="isSigningChefDept() || isAlreadySignedByChefDept()"
+                    title="Signer la demande de stage en tant que Chef de Département">
+                    @if (isSigningChefDept()) {
+                      <span class="spinner small"></span>
+                      Signature Chef de Département en cours...
+                    } @else if (isAlreadySignedByChefDept()) {
+                      <i class="icon-signature">✅</i>
+                      Déjà signé (Chef de Département)
+                    } @else {
+                      <i class="icon-signature">👨‍💼</i>
+                      Signer le document (Chef de Département)
+                    }
+                  </button>
+                  @if (signatureStatusChefDept()) {
+                    <div class="signature-status-message">
+                      <small>{{ signatureStatusChefDept() }}</small>
+                    </div>
+                  } @else {
+                    <p class="signature-info">
+                      <small>En tant que Chef de Département, vous pouvez signer cette demande de stage.</small>
+                    </p>
+                  }
+                </div>
+              }
             </div>
           }
 
@@ -361,7 +476,7 @@
       </div>
 
       <!-- Document Management Section -->
-      @if (stageData()?.statut === 'en_attente_depot_dossier' || isEditMode()) {
+      @if ((stageData()?.statut === 'en_attente_depot_dossier' || isEditMode()) && getUserRole() !== 'utilisateur' && getUserRole() !== 'responsable_de_service') {
         <div class="details-section">
           @if (isEditMode()) {
             <h3>Gestion des documents</h3>

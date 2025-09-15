@@ -62,7 +62,14 @@ export class ConsultationStage implements OnInit {
           sujet: stage.sujet?.titre || stage.sujet__titre || 'Non défini',
           nature: stage.nature,
           date_debut: stage.date_debut,
-          date_fin: stage.date_fin
+          date_fin: stage.date_fin,
+          introduit_par: stage.introduit_par ? {
+            id: stage.introduit_par.id,
+            nom: stage.introduit_par.nom,
+            prenom: stage.introduit_par.prenom,
+            email: stage.introduit_par.email,
+            departement: stage.introduit_par.departement
+          } : undefined
         }));
 
         console.log('Transformed stagiaire data:', stagiaireData);

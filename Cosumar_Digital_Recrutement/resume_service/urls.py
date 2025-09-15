@@ -18,5 +18,8 @@ urlpatterns = [
     path('get_cin/<str:matricule>/', views.get_cin, name='get_cin'),
     path('get_stage_document/<str:stage_id>/<str:document_type>/', views.get_stage_document, name='get_stage_document'),
     path('upload_stage_document/<str:stage_id>/', views.upload_stage_document, name='upload_stage_document'),
+    path('sign_demande_stage/<str:stage_id>/', views.sign_demande_stage, name='sign_demande_stage'),
+    path('sign_demande_stage_rh/<str:stage_id>/', views.sign_demande_stage_rh, name='sign_demande_stage_rh'),
+    path('sign_demande_stage_chef_dept/<str:stage_id>/', views.sign_demande_stage_chef_dept, name='sign_demande_stage_chef_dept'),
     path('stagiaires/', views.get_all_stagiaires, name='get_all_stagiaires'),
 ]

@@ -15,7 +15,7 @@ class Stagiaire(models.Model):
     date_creation = models.DateTimeField(auto_now_add=True)
     deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
-    deleted_by = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True)
+    deleted_by = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True, related_name="stagiaires_deleted")
 
 class Sujet(models.Model):
     id = models.AutoField(primary_key=True)
@@ -24,7 +24,7 @@ class Sujet(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="sujets_created"   # 👈 unique reverse accessor
+        related_name="sujets_created" 
     )
     created_at = models.DateTimeField(auto_now_add=True,blank=True,null=True)
     titre = models.CharField(max_length=100)
@@ -36,7 +36,7 @@ class Sujet(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="sujets_deleted"   # 👈 unique reverse accessor
+        related_name="sujets_deleted"
     )
 
 
@@ -57,6 +57,7 @@ class Stage(models.Model):
         ('stage_application', 'Stage d\'application'),
         ('pfe', 'PFE'),
     ], default='stage_observation')
+    introduit_par = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True, default=None, related_name="stagiaires_introduits")
     sujet = models.ForeignKey(Sujet, on_delete=models.CASCADE, related_name='stages', null=True, blank=True)
     date_debut = models.DateField(null=True, blank=True)
     date_fin = models.DateField(null=True, blank=True)
@@ -76,9 +77,8 @@ class Stage(models.Model):
         ],
         default='en_attente_depot_dossier'
     )
-    signature_encadrant = models.BinaryField(null=True, blank=True)
-    signature_responsable_RH = models.BinaryField(null=True, blank=True)
-    signature_chef_departement = models.BinaryField(null=True, blank=True)
+    # New JSON field to store all signature data and demande de stage information
+    demande_de_stage_data = models.JSONField(null=True, blank=True, default=dict)
     convention = models.BinaryField(null=True, blank=True)
     assurance = models.BinaryField(null=True, blank=True)
     lettre_motivation = models.BinaryField(null=True, blank=True)
@@ -89,6 +89,107 @@ class Stage(models.Model):
     deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
     deleted_by = models.ForeignKey('auth_service.Utilisateur', on_delete=models.SET_NULL, null=True, blank=True)
+
+    def initialize_demande_data(self):
+        """Initialize the demande_de_stage_data JSON structure"""
+        if not self.demande_de_stage_data:
+            self.demande_de_stage_data = {
+                'signatures': {
+                    'encadrant': None,
+                    'responsable_de_service': None,
+                    'responsable_rh': None
+                },
+                'document_data': {
+                    'nom': '',
+                    'prenom': '',
+                    'cin': '',
+                    'telephone': '',
+                    'specialite': '',
+                    'etablissement': '',
+                    'periode_du': '',
+                    'periode_au': '',
+                    'encadrant': '',
+                    'service': '',
+                    'periode_accordee_du': '',
+                    'periode_accordee_au': '',
+                    'sujet': '',
+                    'created_at': None,
+                    'last_modified': None
+                },
+                'signature_status': {
+                    'all_signed': False,
+                    'signatures_count': 0
+                }
+            }
+
+    def add_signature(self, role, user, signature_date=None):
+        """Add a signature for a specific role"""
+        from datetime import datetime
+        if not signature_date:
+            signature_date = datetime.now().strftime('%d/%m/%Y')
+        
+        self.initialize_demande_data()
+        
+        signature_info = {
+            'user_id': user.id,
+            'email': user.email,
+            'full_name': f"{user.prenom} {user.nom}".title() if user.prenom and user.nom else user.email,
+            'signed_at': signature_date,
+            'role': role
+        }
+        
+        self.demande_de_stage_data['signatures'][role] = signature_info
+        self.demande_de_stage_data['document_data']['last_modified'] = signature_date
+        
+        # Update signature count and status
+        signed_count = sum(1 for sig in self.demande_de_stage_data['signatures'].values() if sig is not None)
+        self.demande_de_stage_data['signature_status']['signatures_count'] = signed_count
+        self.demande_de_stage_data['signature_status']['all_signed'] = signed_count == 3
+
+    def update_document_data(self):
+        """Update the document data in the JSON structure with current stage and stagiaire info"""
+        self.initialize_demande_data()
+        
+        self.demande_de_stage_data['document_data'].update({
+            'nom': self.stagiaire.nom.upper() if self.stagiaire.nom else '',
+            'prenom': self.stagiaire.prenom.title() if self.stagiaire.prenom else '',
+            'cin': self.stagiaire.matricule if self.stagiaire.matricule else '',
+            'telephone': self.stagiaire.num_tel if self.stagiaire.num_tel else '',
+            'periode_du': self.date_debut.strftime('%d/%m/%Y') if self.date_debut else '',
+            'periode_au': self.date_fin.strftime('%d/%m/%Y') if self.date_fin else '',
+            'periode_accordee_du': self.date_debut.strftime('%d/%m/%Y') if self.date_debut else '',
+            'periode_accordee_au': self.date_fin.strftime('%d/%m/%Y') if self.date_fin else '',
+            'sujet': self.sujet.titre if self.sujet and self.sujet.titre else '',
+            'encadrant': self.sujet.created_by.prenom + ' ' + self.sujet.created_by.nom if self.sujet and self.sujet.created_by and self.sujet.created_by.prenom and self.sujet.created_by.nom else '',
+        })
+
+    def get_signature_info(self, role):
+        """Get signature information for a specific role"""
+        if not self.demande_de_stage_data or 'signatures' not in self.demande_de_stage_data:
+            return None
+        return self.demande_de_stage_data['signatures'].get(role)
+
+    def is_signed_by_role(self, role):
+        """Check if document is signed by a specific role"""
+        return self.get_signature_info(role) is not None
+
+    def are_all_signatures_complete(self):
+        """Check if all three signatures are present"""
+        if not self.demande_de_stage_data:
+            return False
+        return self.demande_de_stage_data.get('signature_status', {}).get('all_signed', False)
+
+    def get_signatures_status(self):
+        """Get a summary of signature status"""
+        if not self.demande_de_stage_data:
+            return {'encadrant': False, 'responsable_de_service': False, 'responsable_rh': False}
+        
+        signatures = self.demande_de_stage_data.get('signatures', {})
+        return {
+            'encadrant': signatures.get('encadrant') is not None,
+            'responsable_de_service': signatures.get('responsable_de_service') is not None,
+            'responsable_rh': signatures.get('responsable_rh') is not None
+        }
 
     def check_documents_and_expire(self):
         if self.statut == 'accepte':

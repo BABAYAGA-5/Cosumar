@@ -11,6 +11,13 @@ export interface StagiaireData {
   nature: string;
   date_debut?: string;
   date_fin?: string;
+  introduit_par?: {
+    id: number;
+    nom: string;
+    prenom: string;
+    email: string;
+    departement: string;
+  };
 }
 
 @Component({
@@ -84,5 +91,16 @@ export class StagiaireCardComponent {
       'alternance': 'Alternance'
     };
     return natureTexts[nature] || nature;
+  }
+
+  getDepartmentText(departement: string): string {
+    const departmentTexts: { [key: string]: string } = {
+      'digital_factory': 'Digital Factory',
+      'ressources_humaines': 'Ressources Humaines',
+      'finance': 'Finance',
+      'marketing': 'Marketing',
+      'maintenance': 'Maintenance'
+    };
+    return departmentTexts[departement] || departement;
   }
 }

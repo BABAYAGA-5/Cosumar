@@ -20,6 +20,7 @@ interface SujetData {
   id: number;
   titre: string;
   description: string;
+  created_by?: number;
 }
 
 interface StageData {
@@ -33,6 +34,28 @@ interface StageData {
   updated_at: string;
   stagiaire: StagiaireData;
   sujet?: SujetData;
+  demande_de_stage_data?: {
+    signatures?: {
+      encadrant?: {
+        user_id: number;
+        full_name: string;
+        email: string;
+        signed_at: string;
+      };
+      rh?: {
+        user_id: number;
+        full_name: string;
+        email: string;
+        signed_at: string;
+      };
+      chef_departement?: {
+        user_id: number;
+        full_name: string;
+        email: string;
+        signed_at: string;
+      };
+    };
+  };
 }
 
 @Component({
@@ -48,6 +71,13 @@ export class StageDetails implements OnInit, OnDestroy {
   private router = inject(Router);
   private sanitizer = inject(DomSanitizer);
   private cdr = inject(ChangeDetectorRef);
+
+  // Status message system
+  statusMessage = signal<{
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message?: string;
+  } | null>(null);
 
   // Stage data - using the simpler interface
   stageData = signal<StageData | null>(null);
@@ -66,6 +96,14 @@ export class StageDetails implements OnInit, OnDestroy {
   isEditMode = signal(false);
   isSaving = signal(false);
   isUploading = signal(false);
+  isSigning = signal(false);
+  isSigningRH = signal(false);
+  isSigningChefDept = signal(false);
+
+  // Signature status messages for each role
+  signatureStatusMessage = signal<string | null>(null);
+  signatureStatusRH = signal<string | null>(null);
+  signatureStatusChefDept = signal<string | null>(null);
 
   // Document upload state (like CreationStage)
   documents = signal<{[key: string]: File | null}>({
@@ -100,7 +138,41 @@ export class StageDetails implements OnInit, OnDestroy {
     demande_de_stage: 0
   });
 
+  // Status message helper methods
+  private showStatus(type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string) {
+    console.log('� Showing status message:', { type, title, message });
+    this.statusMessage.set({ type, title, message });
+    
+    // Auto-dismiss after 5 seconds for success/info, 8 seconds for error/warning
+    const duration = (type === 'error' || type === 'warning') ? 8000 : 5000;
+    setTimeout(() => {
+      console.log('⏰ Auto-dismissing status message after', duration, 'ms');
+      this.statusMessage.set(null);
+    }, duration);
+  }
+
+  showSuccess(title: string, message?: string) {
+    this.showStatus('success', title, message);
+  }
+
+  showError(title: string, message?: string) {
+    this.showStatus('error', title, message);
+  }
+
+  showWarning(title: string, message?: string) {
+    this.showStatus('warning', title, message);
+  }
+
+  showInfo(title: string, message?: string) {
+    this.showStatus('info', title, message);
+  }
+
+  dismissStatus() {
+    this.statusMessage.set(null);
+  }
+
   ngOnInit(): void {
+    
     this.route.params.subscribe(params => {
       const stageId = params['stageId'] || params['id'];
       console.log('StageDetails ngOnInit - Stage ID:', stageId);
@@ -175,6 +247,7 @@ export class StageDetails implements OnInit, OnDestroy {
           }
           
           this.loadDocumentPreviews(response.data);
+          this.initializeSignatureStatus(); // Initialize signature status messages
           this.isLoading.set(false);
         } else {
           this.errorMessage.set('Aucune donnée trouvée pour ce stage');
@@ -682,6 +755,301 @@ export class StageDetails implements OnInit, OnDestroy {
       console.error('Error uploading documents:', error);
     } finally {
       this.isUploading.set(false);
+    }
+  }
+
+  // Signature status checking methods
+  getUserRole(): string | null {
+    return localStorage.getItem('role');
+  }
+
+  isAlreadySignedByEncadrant(): boolean {
+    const stageData = this.stageData();
+    const result = !!(stageData?.demande_de_stage_data?.signatures?.encadrant);
+    console.log('🔍 isAlreadySignedByEncadrant:', result);
+    return result;
+  }
+
+  isAlreadySignedByRH(): boolean {
+    const stageData = this.stageData();
+    const result = !!(stageData?.demande_de_stage_data?.signatures?.rh);
+    console.log('🔍 isAlreadySignedByRH:', result);
+    return result;
+  }
+
+  isAlreadySignedByChefDept(): boolean {
+    const stageData = this.stageData();
+    const result = !!(stageData?.demande_de_stage_data?.signatures?.chef_departement);
+    console.log('🔍 isAlreadySignedByChefDept:', result);
+    return result;
+  }
+
+  getSignatureInfo(role: 'encadrant' | 'rh' | 'chef_departement'): string | null {
+    const stageData = this.stageData();
+    const signature = stageData?.demande_de_stage_data?.signatures?.[role];
+    
+    if (signature) {
+      return `Déjà signé par ${signature.full_name} le ${signature.signed_at}`;
+    }
+    return null;
+  }
+
+  // Initialize signature status messages when component loads
+  private initializeSignatureStatus(): void {
+    console.log('🔍 Initializing signature status...');
+    const stageData = this.stageData();
+    console.log('Stage data:', stageData);
+    console.log('Signature data:', stageData?.demande_de_stage_data?.signatures);
+    
+    // Set signature status for all roles if they have already signed
+    if (this.isAlreadySignedByEncadrant()) {
+      const status = this.getSignatureInfo('encadrant');
+      console.log('Encadrant signature status:', status);
+      this.signatureStatusMessage.set(status);
+    } else {
+      this.signatureStatusMessage.set(null);
+    }
+
+    if (this.isAlreadySignedByRH()) {
+      const status = this.getSignatureInfo('rh');
+      console.log('RH signature status:', status);
+      this.signatureStatusRH.set(status);
+    } else {
+      this.signatureStatusRH.set(null);
+    }
+
+    if (this.isAlreadySignedByChefDept()) {
+      const status = this.getSignatureInfo('chef_departement');
+      console.log('Chef Dept signature status:', status);
+      this.signatureStatusChefDept.set(status);
+    } else {
+      this.signatureStatusChefDept.set(null);
+    }
+  }
+
+  // Updated signing methods with status messages
+  canSignDocument(): boolean {
+    const stageData = this.stageData();
+    const userRole = this.getUserRole();
+    
+    // Check if already signed
+    if (this.isAlreadySignedByEncadrant()) {
+      this.signatureStatusMessage.set(this.getSignatureInfo('encadrant'));
+      return false;
+    }
+    
+    // Only 'utilisateur' and 'responsable_de_service' roles can sign
+    if (userRole !== 'utilisateur' && userRole !== 'responsable_de_service') {
+      return false;
+    }
+    
+    // Must have demande de stage document
+    if (!this.demandeStagePreviewUrl()) {
+      return false;
+    }
+    
+    // Must have a sujet and the user must be the creator of the sujet
+    if (!stageData?.sujet) {
+      return false;
+    }
+    
+    const currentUserId = parseInt(localStorage.getItem('user_id') || '0');
+    
+    // For 'utilisateur' role: must be the creator of the sujet
+    if (userRole === 'utilisateur') {
+      return stageData.sujet.created_by === currentUserId;
+    }
+    
+    // For 'responsable_de_service' role: can sign any document as department head
+    if (userRole === 'responsable_de_service') {
+      return true;
+    }
+    
+    return false;
+  }
+
+  async signDocument(): Promise<void> {
+    const stageData = this.stageData();
+    if (!stageData) {
+      console.error('No stage data available');
+      return;
+    }
+
+    if (!this.canSignDocument()) {
+      this.showWarning('Signature non autorisée', 'Vous ne pouvez pas signer ce document.');
+      return;
+    }
+
+    this.isSigning.set(true);
+
+    try {
+      const response = await this.http.put(
+        `${environment.apiUrl}resume/sign_demande_stage/${stageData.id}/`,
+        {},
+        { headers: this.getAuthHeaders() }
+      ).toPromise();
+
+      console.log('Document signed successfully:', response);
+      
+      // Reload the document to show updated version
+      this.loadDocumentPreviews(stageData);
+      
+      // Show success message
+      this.showSuccess('Signature réussie', 'Document signé avec succès!');
+      
+    } catch (error: any) {
+      console.error('Error signing document:', error);
+      
+      let errorMessage = 'Erreur lors de la signature du document.';
+      if (error.error?.error) {
+        errorMessage = error.error.error;
+      }
+      
+      this.showError('Erreur de signature', errorMessage);
+    } finally {
+      this.isSigning.set(false);
+    }
+  }
+
+  // RH Signing functionality
+  canSignDocumentRH(): boolean {
+    const userRole = this.getUserRole();
+    
+    // Check if already signed by RH
+    if (this.isAlreadySignedByRH()) {
+      this.signatureStatusRH.set(this.getSignatureInfo('rh'));
+      return false;
+    }
+    
+    console.log('🔍 Checking if RH user can sign document:');
+    console.log('  User role:', userRole);
+    
+    // Only 'utilisateur_rh' or 'admin_rh' roles can sign
+    if (userRole !== 'utilisateur_rh' && userRole !== 'admin_rh') {
+      console.log('  ❌ User role is not RH');
+      return false;
+    }
+    
+    // Must have demande de stage document
+    if (!this.demandeStagePreviewUrl()) {
+      console.log('  ❌ No demande de stage document available');
+      return false;
+    }
+    
+    console.log('  ✓ RH user can sign');
+    return true;
+  }
+
+  async signDocumentRH(): Promise<void> {
+    const stageData = this.stageData();
+    if (!stageData) {
+      console.error('No stage data available');
+      return;
+    }
+
+    if (!this.canSignDocumentRH()) {
+      this.showWarning('Signature RH non autorisée', 'Vous ne pouvez pas signer ce document.');
+      return;
+    }
+
+    this.isSigningRH.set(true);
+
+    try {
+      const response = await this.http.put(
+        `${environment.apiUrl}resume/sign_demande_stage_rh/${stageData.id}/`,
+        {},
+        { headers: this.getAuthHeaders() }
+      ).toPromise();
+
+      console.log('Document signed by RH successfully:', response);
+      
+      // Reload the document to show updated version
+      this.loadDocumentPreviews(stageData);
+      
+      // Show success message
+      this.showSuccess('Signature RH réussie', 'Document signé avec succès par RH!');
+      
+    } catch (error: any) {
+      console.error('Error signing document as RH:', error);
+      
+      let errorMessage = 'Erreur lors de la signature du document.';
+      if (error.error?.error) {
+        errorMessage = error.error.error;
+      }
+      
+      this.showError('Erreur signature RH', errorMessage);
+    } finally {
+      this.isSigningRH.set(false);
+    }
+  }
+
+  canSignDocumentChefDept(): boolean {
+    const stageData = this.stageData();
+    const userRole = this.getUserRole();
+    
+    if (!stageData || !userRole) {
+      return false;
+    }
+    
+    // Check if already signed by Chef Département
+    if (this.isAlreadySignedByChefDept()) {
+      this.signatureStatusChefDept.set(this.getSignatureInfo('chef_departement'));
+      return false;
+    }
+    
+    console.log('📋 Checking Chef de Département signing permission:');
+    console.log('  User role:', userRole);
+    
+    // Only admin role can sign as chef de département
+    if (userRole !== 'admin') {
+      console.log('  ❌ User role is not admin');
+      return false;
+    }
+    
+    console.log('  ✅ User can sign as Chef de Département');
+    return true;
+  }
+
+  async signDocumentChefDept(): Promise<void> {
+    try {
+      const stageData = this.stageData();
+      if (!stageData) {
+        this.showError('Erreur', 'Aucune donnée de stage disponible');
+        return;
+      }
+
+      if (!this.canSignDocumentChefDept()) {
+        this.showWarning('Signature non autorisée', 'Vous n\'êtes pas autorisé à signer ce document en tant que Chef de Département.');
+        return;
+      }
+
+      this.isSigningChefDept.set(true);
+
+      const response = await this.http.put(
+        `${environment.apiUrl}resume/sign_demande_stage_chef_dept/${stageData.id}/`,
+        {},
+        { headers: this.getAuthHeaders() }
+      ).toPromise();
+
+      // Success case
+      this.loadDocumentPreviews(stageData);
+      this.showSuccess('Signature réussie', 'Document signé avec succès par le Chef de Département!');
+      
+    } catch (httpError: any) {
+      // Handle HTTP errors without alerts
+      let errorMsg = 'Erreur de signature';
+      
+      if (httpError?.error?.error) {
+        errorMsg = httpError.error.error;
+      } else if (httpError?.message) {
+        errorMsg = httpError.message;
+      } else if (httpError?.status) {
+        errorMsg = `Erreur HTTP ${httpError.status}`;
+      }
+      
+      this.showError('Signature échouée', errorMsg);
+    } finally {
+      this.isSigningChefDept.set(false);
     }
   }
 }

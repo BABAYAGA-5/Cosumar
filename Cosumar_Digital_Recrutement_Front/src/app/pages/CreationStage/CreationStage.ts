@@ -92,6 +92,14 @@ export class CreationStage implements OnInit, OnDestroy {
   // Add debounce timer properties
   private searchDebounceTimer: any = null;
   private sujetSearchDebounceTimer: any = null;
+  private userSearchDebounceTimer: any = null;
+
+  // Introduit par (Introduced by) functionality
+  showIntroducerField = signal(false);
+  introducerSearchQuery = signal('');
+  filteredUsers = signal<any[]>([]);
+  selectedIntroducer = signal<any | null>(null);
+  isLoadingUsers = signal(false);
 
     ngOnInit(): void {
     // Component initialization
@@ -607,6 +615,69 @@ export class CreationStage implements OnInit, OnDestroy {
     }));
   }
 
+  // Introducer (Introduit par) methods
+  toggleIntroducerField(checked: boolean): void {
+    this.showIntroducerField.set(checked);
+    if (!checked) {
+      this.clearIntroducerSelection();
+    }
+  }
+
+  clearIntroducerSelection(): void {
+    this.selectedIntroducer.set(null);
+    this.introducerSearchQuery.set('');
+    this.filteredUsers.set([]);
+  }
+
+  onIntroducerSearchChange(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const query = target.value.trim();
+    this.introducerSearchQuery.set(query);
+    
+    if (this.userSearchDebounceTimer) {
+      clearTimeout(this.userSearchDebounceTimer);
+    }
+    
+    this.isLoadingUsers.set(true);
+    
+    this.userSearchDebounceTimer = setTimeout(() => {
+      this.searchUsers(query);
+    }, 500);
+  }
+
+  async searchUsers(query: string): Promise<void> {
+    if (!query || query.length < 2) {
+      this.filteredUsers.set([]);
+      this.isLoadingUsers.set(false);
+      return;
+    }
+
+    try {
+      const response = await this.http.get<any>(
+        `${environment.apiUrl}auth/utilisateurs/?search=${encodeURIComponent(query)}&page_size=10`,
+        { 
+          headers: new HttpHeaders({
+            'Authorization': `Bearer ${localStorage.getItem('access')}`
+          })
+        }
+      ).toPromise();
+
+      // The API returns data in response.results, not response.utilisateurs
+      this.filteredUsers.set(response.results || []);
+    } catch (error: any) {
+      console.error('Error searching users:', error);
+      this.filteredUsers.set([]);
+    } finally {
+      this.isLoadingUsers.set(false);
+    }
+  }
+
+  selectIntroducer(user: any): void {
+    this.selectedIntroducer.set(user);
+    this.introducerSearchQuery.set(`${user.prenom} ${user.nom}`);
+    this.filteredUsers.set([]);
+  }
+
   onSujetSearchQueryChange(event: Event): void {
     const target = event.target as HTMLInputElement;
     const query = target.value.trim();
@@ -769,6 +840,11 @@ export class CreationStage implements OnInit, OnDestroy {
         stagiaireFormData.append('email', cvData?.email || '');
         stagiaireFormData.append('phone', cvData?.phone || '');
         
+        // Add introducer information if selected
+        if (this.selectedIntroducer()) {
+          stagiaireFormData.append('introduit_par_id', this.selectedIntroducer()!.id.toString());
+        }
+        
         if (this.selectedFile()) {
           stagiaireFormData.append('cin_file', this.selectedFile()!);
         }
@@ -799,6 +875,11 @@ export class CreationStage implements OnInit, OnDestroy {
       
       if (this.selectedSujet()) {
         stageFormData.append('sujet_id', this.selectedSujet()!.id.toString());
+      }
+      
+      // Add introducer information if selected
+      if (this.selectedIntroducer()) {
+        stageFormData.append('introduit_par_id', this.selectedIntroducer()!.id.toString());
       }
 
       if (docs['cv']) stageFormData.append('cv_file', docs['cv']);
@@ -905,6 +986,11 @@ export class CreationStage implements OnInit, OnDestroy {
       
       if (this.selectedSujet()) {
         stageFormData.append('sujet_id', this.selectedSujet()!.id.toString());
+      }
+      
+      // Add introducer information if selected
+      if (this.selectedIntroducer()) {
+        stageFormData.append('introduit_par_id', this.selectedIntroducer()!.id.toString());
       }
 
       if (docs['cv']) stageFormData.append('cv_file', docs['cv']);
