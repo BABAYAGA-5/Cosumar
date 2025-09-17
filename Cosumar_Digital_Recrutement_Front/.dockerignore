@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.vscode
+dist
+tmp
+temp
+Dockerfile
+dockerfile
+**/.DS_Store
+**/Thumbs.db
